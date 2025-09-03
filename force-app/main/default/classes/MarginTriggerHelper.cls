@@ -1,6 +1,5 @@
 public with sharing class MarginTriggerHelper {
     public static void handleInsertMargin(List<Margin__c> newRecordList){
-        MarginRequiredFields(newRecordList);
         Map<String, Margin__c> mapMargin = new Map<String, Margin__c>();
         for(Margin__c iMargin: newRecordList){
             String marginKey = iMargin.Product__c+'-'+iMargin.ProductHierarchy__c+'-'+iMargin.Account__c+'-'+iMargin.AccountGroup__c+'-'+
@@ -51,7 +50,6 @@ public with sharing class MarginTriggerHelper {
         }
     }
     public static void handleUpdateMargin(List<Margin__c> newRecordList){
-        MarginRequiredFields(newRecordList);
         Map<String, Margin__c> mapMargin = new Map<String, Margin__c>();
         for(Margin__c iMargin: newRecordList){
             String marginKey = iMargin.Product__c+'-'+iMargin.ProductHierarchy__c+'-'+iMargin.Account__c+'-'+iMargin.AccountGroup__c+'-'+
@@ -100,30 +98,6 @@ public with sharing class MarginTriggerHelper {
                 if(iMargin.Id != mapMargin.get(marginKey).Id){
                     mapMargin.get(marginKey).addError('Já existe uma margem com esses dados');
                 }
-            }
-        }
-        
-    }
-
-    public static void MarginRequiredFields(List<Margin__c> newRecordList){
-        for(Margin__c iMargin: newRecordList){
-            if(iMargin.AccountGroup__c == null && iMargin.Account__c == null){
-                iMargin.addError('Adicione um Grupo de Conta ou uma Conta!');
-            }
-            if(iMargin.AccountGroup__c != null && iMargin.Account__c != null){
-                iMargin.addError('Os campos Grupo de Conta e Conta não podem ser especificados ao mesmo tempo. Por favor, remova um deles.');
-            }
-            if(iMargin.Product__c == null && iMargin.ProductHierarchy__c == null){
-                iMargin.addError('Adicione um Produto ou uma Hierarquia de Produto!');
-            }
-            if(iMargin.Product__c != null && iMargin.ProductHierarchy__c != null){
-                iMargin.addError('Os campos Produto e Hierarquia de Produto não podem ser especificados ao mesmo tempo. Por favor, remova um deles.');
-            }
-            if(iMargin.City__c == null && iMargin.State__c == null && iMargin.Country__c == null){
-                iMargin.addError('Os campos Cidade, Estado e País não podem ser nulos ao mesmo tempo!');
-            }
-            if(iMargin.City__c != null && iMargin.State__c != null && iMargin.Country__c != null){
-                iMargin.addError('Os campos Cidade, Estado e País não podem ser todos especificados ao mesmo tempo. Por favor, remova pelo menos um deles.');
             }
         }
     }

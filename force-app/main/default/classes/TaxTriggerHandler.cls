@@ -31,9 +31,9 @@ public with sharing class TaxTriggerHandler {
 	}
 
     public void beforeInsert() {
-		//TaxTriggerHelper.handleInsertFreight(this.newRecordList);
+		TaxTriggerHelper.handleInsertTax(this.newRecordList);
 	}
 	public void beforeUpdate() {
-        //TaxTriggerHelper.handleUpdateFreight(this.newRecordList);
+        TaxTriggerHelper.handleUpdateTax(this.newRecordList);
     }
 }
