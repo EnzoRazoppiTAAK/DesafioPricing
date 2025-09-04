@@ -1,74 +1,166 @@
 public with sharing class OrderItemTriggerHelper {
     public static void handleInsertOrderItem(List<OrderItem> newRecordList){
         searchForTheTax(newRecordList);
+        searchForTheMostSpecificFreight(newRecordList);
+        searchForTheMostSpecificMargin(newRecordList);
         
-        /*Map<Id, List<OrderItem>> orderItemMap = new Map<Id, OrderItem>();
-        for(OrderItem iOrderItem: newRecordList){
-            if(orderItemMap.containsKey(iOrderItem.Product2Id)){
-                orderItemMap.get(iOrderItem.Product2erId).add(iOrderItem);
-            }else{
-                orderItemMap.put(iOrderItem.Product2Id, new List<OrderItem>{iOrderItem});
-            }
-        }
-        Set<id> productId = new Set<id>();
-        Set<id> productHierarchyId = new Set<id>();
-        Set<id> orderId = new Set<id>();
-        Set<id> accountId = new Set<id>();
-        Set<id> accountGroupId = new Set<id>();
-        Set<id> cityId = new Set<id>();
-        Set<id> stateId = new Set<id>();
-        Set<id> countryId = new Set<id>();
-        for(OrderItem iOrderItem: orderItemMap.values()){
-            productId.add(iOrderItem.Product2Id);
-        }
-        List<Product2> productsList = [
-            SELECT Id, ProductHierarchy__c 
-            FROM Product2 
-            WHERE Id IN :productId
-            ];
-        for(Product2 iProduct: productsList){
-            productHierarchyId.add(iProduct.ProductHierarchy__c);
-        }
-        for(OrderItem iOrderItem: orderItemMap.values()){
-            orderId.add(iOrderItem.OrderId);
-        }
-        List<Order> ordersList = [
-            SELECT Id, AccountId, AccountAddress__r.City__c 
-            FROM Order
-            WHERE Id IN :orderId
-            ];
-        for(Order iOrder: ordersList){
-            accountId.add(iOrder.AccountId);
-        List<Account> accountsList = [
-            SELECT Id, AccountGroup__c
-            FROM Account
-            WHERE Id IN :accountId
-            ];
-        for(Account iAccount: accountsList){
-            accountGroupId.add(iAccount.AccountGroup__c);
-        }
-        List<AccountAddress__c> accountAddressList = [
-            SELECT Id, City__c 
-            FROM AccountAddress__c 
-            WHERE Account__c IN :accountId
-            ];
-        for(AccountAddress__c iAccountAddress: accountAddressList){
-            cityId.add(iAccountAddress.City__c);
-        }
-        List<City> citiesList = [
-            SELECT Id, State__c 
-            FROM City 
-            WHERE Id IN :cityId
-            ];
-        List<Margin__c> listMargin = [
-            SELECT Id, ProductHierarchy__c, Product__c 
-            FROM Margin__c 
-            WHERE Product__c IN :productsId
-            OR ProductHierarchy__c IN :productHierarchyId
-            ];*/
+    
     }
     public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
         
+    }
+    public static void searchForTheMostSpecificMargin(List<OrderItem> newRecordList){
+        Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
+        for(OrderItem iOrderItem: newRecordList){
+            if(newOrderItemMap.containsKey(iOrderItem.OrderId)){
+                newOrderItemMap.get(iOrderItem.OrderId).add(iOrderItem);
+            }else{
+                newOrderItemMap.put(iOrderItem.OrderId, new List<OrderItem>{iOrderItem});
+            }
+        }
+        Set<id> productsIds = new Set<id>();
+        Set<id> productHierarchyId = new Set<id>();
+        Set<id> ordersIds = new Set<id>();
+        Set<Id> accountsAddressesIds = new Set<id>();
+        Set<Id> AccountsGroupsIds = new Set<id>();
+        Set<Id> statesIds = new Set<id>();
+        Set<Id> countriesIds = new Set<id>();
+        for(OrderItem iOrderItem: newRecordList){
+            productsIds.add(iOrderItem.Product2Id);
+            ordersIds.add(iOrderItem.OrderId);
+        }
+        Map<Id, Product2> productsMap = new Map<id, Product2>([
+            SELECT Id, ProductHierarchy__c
+            FROM Product2 
+            WHERE Id IN :productsIds
+            ]);
+        for(Product2 iProduct: productsMap.values()){
+            productHierarchyId.add(iProduct.ProductHierarchy__c);
+        }
+        Map<Id, Order> ordersMap = new Map<id, Order>([
+            SELECT Id, AccountId, AccountAddress__c
+            FROM Order
+            WHERE Id IN :ordersIds
+            ]);
+        for(Order iOrder: ordersMap.values()){
+            accountsAddressesIds.add(iOrder.AccountAddress__c);
+        }
+        Map<Id, Account> accountsMap = new Map<id, Account>([
+            SELECT Id, AccountGroup__c
+            FROM Account
+            WHERE Id IN (SELECT AccountId FROM Order WHERE Id IN :ordersIds)
+            ]);
+        for(Account iAccount: accountsMap.values()){
+            AccountsGroupsIds.add(iAccount.AccountGroup__c);
+        }
+        Map<Id, AccountAddress__c> accountAddressMap = new Map<id, AccountAddress__c>([
+            SELECT Id, City__c 
+            FROM AccountAddress__c 
+            WHERE Id IN :accountsAddressesIds
+            ]);
+        Map<Id, City__c> citiesMap = new Map<id, City__c>([
+            SELECT Id, State__c
+            FROM City__c
+            WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountsAddressesIds)
+            ]);
+        for(City__c iCity: citiesMap.values()){
+            statesIds.add(iCity.State__c);
+        }
+        Map<Id, State__c> statesMap = new Map<id, State__c>([
+            SELECT Id, Country__c
+            FROM State__c
+            WHERE Id IN :statesIds
+            ]);
+        for(State__c iState: statesMap.values()){
+            countriesIds.add(iState.Country__c);
+        }
+        List<Margin__c> marginsInDatabase = [ 
+            SELECT Id, Product__c, ProductHierarchy__c, Account__c, AccountGroup__c, City__c, State__c, Country__c, Status__c, Value__c
+            FROM Margin__c 
+            WHERE (Product__c IN :productsIds
+            OR ProductHierarchy__c IN :productHierarchyId)
+            AND (Account__c IN :accountsMap.keySet()
+            OR AccountGroup__c IN :AccountsGroupsIds)
+            AND(City__c IN :citiesMap.keySet()
+            OR State__c IN :statesIds
+            OR Country__c IN :countriesIds)
+            AND Status__c = 'Aprovado'
+            ];
+        Map<String, Margin__c> marginsMap = new Map<String, Margin__c>();
+        for(Margin__c iMargin: marginsInDatabase){
+            String marginKey = iMargin.Product__c+''+iMargin.ProductHierarchy__c+''+iMargin.Account__c+''+iMargin.AccountGroup__c+''+iMargin.City__c+''+iMargin.State__c+''+iMargin.Country__c;
+            marginKey = marginKey.replace('null', '');
+            marginsMap.put(marginKey, iMargin);
+        }
+        Map<OrderItem, String> orderItemMapToSearchMargin = new Map<OrderItem, String>();
+        for(Order iOrder: ordersMap.values()){
+            String accountIdString = accountsMap.get(iOrder.AccountId).Id;
+            String accountGroupIdString = accountsMap.get(iOrder.AccountId).AccountGroup__c;
+            String cityIdString = accountAddressMap.get(iOrder.AccountAddress__c).City__c;
+            String stateIdString = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
+            String countryIdString = statesMap.get(citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c).Country__c;
+            for(OrderItem iOrderItem: newOrderItemMap.get(iOrder.Id)){
+                String productHierarchyIdString = productsMap.get(iOrderItem.Product2Id).ProductHierarchy__c;
+                String orderItemKey = iOrderItem.Product2Id+'-'+productHierarchyIdString+'-'+accountIdString+'-'+accountGroupIdString+'-'+cityIdString+'-'+stateIdString+'-'+countryIdString;
+                orderItemMapToSearchMargin.put(iOrderItem, orderItemKey);
+            }
+        }
+        for(OrderItem iOrderItem: orderItemMapToSearchMargin.keySet()){
+            List<String> IdsInOrderItemString = orderItemMapToSearchMargin.get(iOrderItem).split('-');
+            String searchProductAccountCity = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(2)+''+IdsInOrderItemString.get(4);
+            String searchProductAccountState= IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(2)+''+IdsInOrderItemString.get(5);
+            String searchProductAccountCountry = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(4)+''+IdsInOrderItemString.get(6);
+            String searchProductAccountGroupCity = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(4);
+            String searchProductAccountGroupState = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(5);
+            String searchProductAccountGroupCountry = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(6);
+            String searchProductHierachyAccountCity = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(2)+''+IdsInOrderItemString.get(4);
+            String searchProductHierachyAccountState = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(2)+''+IdsInOrderItemString.get(5);
+            String searchProductHierachyAccountCountry = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(2)+''+IdsInOrderItemString.get(6);
+            String searchProductHierachyAccountGroupCity = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(4);
+            String searchProductHierachyAccountGroupState = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(5);
+            String searchProductHierachyAccountGroupCountry = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(6);
+
+            
+            if(marginsMap.containsKey(searchProductAccountCity)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountCity).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductAccountState)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountState).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductAccountCountry)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountCountry).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductAccountGroupCity)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountGroupCity).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductAccountGroupState)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountGroupState).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductAccountGroupCountry)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountGroupCountry).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductHierachyAccountCity)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductHierachyAccountCity).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductHierachyAccountState)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductHierachyAccountState).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductHierachyAccountCountry)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductHierachyAccountCountry).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductHierachyAccountGroupCity)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductHierachyAccountGroupCity).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductHierachyAccountGroupState)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductHierachyAccountGroupState).Value__c;
+            }
+            else if(marginsMap.containsKey(searchProductHierachyAccountGroupCountry)){
+                iOrderItem.MarginPercentage__c = marginsMap.get(searchProductHierachyAccountGroupCountry).Value__c;
+            }
+            else{
+                iOrderItem.MarginPercentage__c = null;
+            }
+        }
     }
     public static void searchForTheMostSpecificFreight(List<OrderItem> newRecordList){
         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
@@ -82,98 +174,85 @@ public with sharing class OrderItemTriggerHelper {
         Set<id> productsIds = new Set<id>();
         Set<id> productHierarchyId = new Set<id>();
         Set<id> ordersIds = new Set<id>();
-        Set<Id> accountAddressIds = new Set<id>();
-        Set<Id> citiesIds = new Set<id>();
+        Set<Id> accountsAddressesIds = new Set<id>();
         Set<Id> statesIds = new Set<id>();
         Set<Id> countriesIds = new Set<id>();
         for(OrderItem iOrderItem: newRecordList){
             productsIds.add(iOrderItem.Product2Id);
             ordersIds.add(iOrderItem.OrderId);
         }
-        List<Product2> productsList = [
+        Map<Id, Product2> productsMap = new Map<id, Product2>([
             SELECT Id, ProductHierarchy__c
             FROM Product2 
             WHERE Id IN :productsIds
-            ];
-        Map<Id, Product2> productsMap = new Map<id, Product2>();
-        for(Product2 iProduct: productsList){
-            productsMap.put(iProduct.Id, iProduct);
+            ]);
+        for(Product2 iProduct: productsMap.values()){
             productHierarchyId.add(iProduct.ProductHierarchy__c);
         }
-        List<Order> ordersList = [
+        Map<Id, Order> ordersMap = new Map<id, Order>([
             SELECT Id, AccountAddress__c
             FROM Order
             WHERE Id IN :ordersIds
-        ];
-        for(Order iOrder: ordersList){
-            accountAddressIds.add(iOrder.AccountAddress__c);
+            ]);
+        for(Order iOrder: ordersMap.values()){
+            accountsAddressesIds.add(iOrder.AccountAddress__c);
         }
-        List<AccountAddress__c> accountAddressList = [
-            SELECT City__c 
+        Map<Id, AccountAddress__c> accountAddressMap = new Map<id, AccountAddress__c>([
+            SELECT Id, City__c 
             FROM AccountAddress__c 
-            WHERE Id IN :accountAddressIds
-            ];
-        Map<Id, AccountAddress__c> accountAddressMap = new Map<Id, AccountAddress__c>();
-        for(AccountAddress__c iAccountAddress: accountAddressList){
-            accountAddressMap.put(iAccountAddress.Id, iAccountAddress);
-        }
-        List<City__c> citiesList = [
+            WHERE Id IN :accountsAddressesIds
+            ]);
+        Map<Id, City__c> citiesMap = new Map<id, City__c>([
             SELECT Id, State__c
             FROM City__c
-            WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountAddressIds)
-            ];
-        Map<Id, City__c> citiesMap = new Map<Id, City__c>();
-        for(City__c iCity: citiesList){
-            citiesIds.add(iCity.Id);
+            WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountsAddressesIds)
+            ]);
+        for(City__c iCity: citiesMap.values()){
             statesIds.add(iCity.State__c);
-            citiesMap.put(iCity.Id, iCity);
         }
-        List<State__c> statesList = [
+        Map<Id, State__c> statesMap = new Map<id, State__c>([
             SELECT Id, Country__c
             FROM State__c
             WHERE Id IN :statesIds
-            ];
-        Map<Id, State__c> statesMap = new Map<Id, State__c>();
-        for(State__c iState: statesList){
+            ]);
+        for(State__c iState: statesMap.values()){
             countriesIds.add(iState.Country__c);
-            statesMap.put(iState.Id, iState);
         }
         List<Freight__c> freightsInDatabase = [ 
-            SELECT Id, Product__c, ProductHierarchy__c, City__c, State__c, Country__c, Status__c
+            SELECT Id, Product__c, ProductHierarchy__c, City__c, State__c, Country__c, Status__c, Value__c
             FROM Freight__c 
             WHERE (Product__c IN :productsIds
-            OR ProductHierarchy__c IN :productHierarchyId
-            OR City__c IN :citiesIds
+            OR ProductHierarchy__c IN :productHierarchyId)
+            AND(City__c IN :citiesMap.keySet()
             OR State__c IN :statesIds
             OR Country__c IN :countriesIds)
             AND Status__c = 'Aprovado'
             ];
         Map<String, Freight__c> freightsMap = new Map<String, Freight__c>();
         for(Freight__c iFreight: freightsInDatabase){
-            String freightKey = iFreight.Product__c+'-'+iFreight.ProductHierarchy__c+'-'+iFreight.City__c+'-'+iFreight.State__c+'-'+iFreight.Country__c;
+            String freightKey = iFreight.Product__c+''+iFreight.ProductHierarchy__c+''+iFreight.City__c+''+iFreight.State__c+''+iFreight.Country__c;
+            freightkey = freightkey.replace('null', '');
             freightsMap.put(freightKey, iFreight);
         }
         Map<OrderItem, String> orderItemMapToSearchFreight = new Map<OrderItem, String>();
-        for(Order iOrder: ordersList){
-            String city = accountAddressMap.get(iOrder.AccountAddress__c).City__c;
-            String state = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
-            String country = statesMap.get(citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c).Country__c;
-            String address = city+'-'+state+'-'+country;
+        for(Order iOrder: ordersMap.values()){
+            String cityIdString = accountAddressMap.get(iOrder.AccountAddress__c).City__c;
+            String stateIdString = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
+            String countryIdString = statesMap.get(citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c).Country__c;
             for(OrderItem iOrderItem: newOrderItemMap.get(iOrder.Id)){
-                String productHierarchy = productsMap.get(iOrderItem.Product2Id).ProductHierarchy__c;
-                String orderItemKey = iOrderItem.Product2Id+'-'+productHierarchy+'-'+address;
+                String productHierarchyIdString = productsMap.get(iOrderItem.Product2Id).ProductHierarchy__c;
+                String orderItemKey = iOrderItem.Product2Id+'-'+productHierarchyIdString+'-'+cityIdString+'-'+stateIdString+'-'+countryIdString;
                 orderItemMapToSearchFreight.put(iOrderItem, orderItemKey);
             }
         }
         for(OrderItem iOrderItem: orderItemMapToSearchFreight.keySet()){
-            String[] IdsInOrderItemString = orderItemMapToSearchFreight.get(iOrderItem).split('-');
-            String searchProductAndCity = IdsInOrderItemString[0]+'-'+IdsInOrderItemString[2];
-            String searchProductAndState = IdsInOrderItemString[0]+'-'+IdsInOrderItemString[3];
-            String searchProductAndCountry = IdsInOrderItemString[0]+'-'+IdsInOrderItemString[4];
-            String searchProductHierachyAndCity = IdsInOrderItemString[1]+'-'+IdsInOrderItemString[2];
-            String searchProductHierachyAndState = IdsInOrderItemString[1]+'-'+IdsInOrderItemString[3];
-            String searchProductHierachyAndCountry = IdsInOrderItemString[1]+'-'+IdsInOrderItemString[4];
-            
+            List<String> IdsInOrderItemString = orderItemMapToSearchFreight.get(iOrderItem).split('-');
+            String searchProductAndCity = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(2);
+            String searchProductAndState = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(3);
+            String searchProductAndCountry = IdsInOrderItemString.get(0)+''+IdsInOrderItemString.get(4);
+            String searchProductHierachyAndCity = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(2);
+            String searchProductHierachyAndState = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(3);
+            String searchProductHierachyAndCountry = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(4);
             if(freightsMap.containsKey(searchProductAndCity)){
                 iOrderItem.FreightValue__c = freightsMap.get(searchProductAndCity).Value__c;
             }
@@ -191,6 +270,8 @@ public with sharing class OrderItemTriggerHelper {
             }
             else if(freightsMap.containsKey(searchProductHierachyAndCountry)){
                 iOrderItem.FreightValue__c = freightsMap.get(searchProductHierachyAndCountry).Value__c;
+            }else{
+                iOrderItem.FreightValue__c = null;
             }
         }
     }
@@ -222,23 +303,17 @@ public with sharing class OrderItemTriggerHelper {
             distributionCentersIds.add(iOrder.DistributionCenter__c);
             accountAddressIds.add(iOrder.AccountAddress__c);
         }
-        List<AccountAddress__c> accountAddressList = [
-            SELECT City__c 
+        Map<Id, AccountAddress__c> accountAddressMap = new Map<id, AccountAddress__c>([
+            SELECT Id, City__c 
             FROM AccountAddress__c 
             WHERE Id IN :accountAddressIds
-            ];
-        Map<Id, AccountAddress__c> accountAddressMap = new Map<Id, AccountAddress__c>();
-        for(AccountAddress__c iAccountAddress: accountAddressList){
-            accountAddressMap.put(iAccountAddress.Id, iAccountAddress);
-        }
-        List<City__c> citiesList = [
+            ]);
+        Map<Id, City__c> citiesMap = new Map<id, City__c>([
             SELECT Id, State__c
             FROM City__c
             WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountAddressIds)
-            ];
-        Map<Id, City__c> citiesMap = new Map<Id, City__c>();
-        for(City__c iCity: citiesList){
-            citiesMap.put(iCity.Id, iCity);
+            ]);
+        for(City__c iCity: citiesMap.values()){
             statesIds.add(iCity.State__c);
         }
         List<Tax__c> taxesInDatabase = [
