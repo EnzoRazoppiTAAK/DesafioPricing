@@ -1,15 +1,5 @@
 public with sharing class OrderItemTriggerHelper {
     public static void handleInsertOrderItem(List<OrderItem> newRecordList){
-        searchForTheTax(newRecordList);
-        searchForTheMostSpecificFreight(newRecordList);
-        searchForTheMostSpecificMargin(newRecordList);
-        
-    
-    }
-    public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
-        
-    }
-    public static void searchForTheMostSpecificMargin(List<OrderItem> newRecordList){
         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
         for(OrderItem iOrderItem: newRecordList){
             if(newOrderItemMap.containsKey(iOrderItem.OrderId)){
@@ -25,12 +15,13 @@ public with sharing class OrderItemTriggerHelper {
         Set<Id> AccountsGroupsIds = new Set<id>();
         Set<Id> statesIds = new Set<id>();
         Set<Id> countriesIds = new Set<id>();
+        Set<Id> distributionCentersIds = new Set<id>();
         for(OrderItem iOrderItem: newRecordList){
             productsIds.add(iOrderItem.Product2Id);
             ordersIds.add(iOrderItem.OrderId);
         }
         Map<Id, Product2> productsMap = new Map<id, Product2>([
-            SELECT Id, ProductHierarchy__c
+            SELECT Id, ProductHierarchy__c, ProductionCost__c
             FROM Product2 
             WHERE Id IN :productsIds
             ]);
@@ -38,12 +29,13 @@ public with sharing class OrderItemTriggerHelper {
             productHierarchyId.add(iProduct.ProductHierarchy__c);
         }
         Map<Id, Order> ordersMap = new Map<id, Order>([
-            SELECT Id, AccountId, AccountAddress__c
+            SELECT Id, AccountId, AccountAddress__c, DistributionCenter__c
             FROM Order
             WHERE Id IN :ordersIds
             ]);
         for(Order iOrder: ordersMap.values()){
             accountsAddressesIds.add(iOrder.AccountAddress__c);
+            distributionCentersIds.add(iOrder.DistributionCenter__c);
         }
         Map<Id, Account> accountsMap = new Map<id, Account>([
             SELECT Id, AccountGroup__c
@@ -74,6 +66,92 @@ public with sharing class OrderItemTriggerHelper {
         for(State__c iState: statesMap.values()){
             countriesIds.add(iState.Country__c);
         }
+        searchForTheTax(newOrderItemMap, productsIds, statesIds, distributionCentersIds, 
+        ordersMap, accountAddressMap, citiesMap);
+        searchForTheMostSpecificFreight(newOrderItemMap, productsIds, productHierarchyId, statesIds, countriesIds, 
+        productsMap, ordersMap, accountAddressMap, citiesMap, statesMap);
+        searchForTheMostSpecificMargin(newOrderItemMap, productsIds, productHierarchyId, AccountsGroupsIds, statesIds, countriesIds, 
+        productsMap, ordersMap, accountAddressMap, accountsMap, citiesMap, statesMap);
+    }
+    public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
+         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
+        for(OrderItem iOrderItem: newRecordList){
+            if(newOrderItemMap.containsKey(iOrderItem.OrderId)){
+                newOrderItemMap.get(iOrderItem.OrderId).add(iOrderItem);
+            }else{
+                newOrderItemMap.put(iOrderItem.OrderId, new List<OrderItem>{iOrderItem});
+            }
+        }
+        Set<id> productsIds = new Set<id>();
+        Set<id> productHierarchyId = new Set<id>();
+        Set<id> ordersIds = new Set<id>();
+        Set<Id> accountsAddressesIds = new Set<id>();
+        Set<Id> AccountsGroupsIds = new Set<id>();
+        Set<Id> statesIds = new Set<id>();
+        Set<Id> countriesIds = new Set<id>();
+        Set<Id> distributionCentersIds = new Set<id>();
+        for(OrderItem iOrderItem: newRecordList){
+            productsIds.add(iOrderItem.Product2Id);
+            ordersIds.add(iOrderItem.OrderId);
+        }
+        Map<Id, Product2> productsMap = new Map<id, Product2>([
+            SELECT Id, ProductHierarchy__c
+            FROM Product2 
+            WHERE Id IN :productsIds
+            ]);
+        for(Product2 iProduct: productsMap.values()){
+            productHierarchyId.add(iProduct.ProductHierarchy__c);
+        }
+        Map<Id, Order> ordersMap = new Map<id, Order>([
+            SELECT Id, AccountId, AccountAddress__c, DistributionCenter__c
+            FROM Order
+            WHERE Id IN :ordersIds
+            ]);
+        for(Order iOrder: ordersMap.values()){
+            accountsAddressesIds.add(iOrder.AccountAddress__c);
+            distributionCentersIds.add(iOrder.DistributionCenter__c);
+        }
+        Map<Id, Account> accountsMap = new Map<id, Account>([
+            SELECT Id, AccountGroup__c
+            FROM Account
+            WHERE Id IN (SELECT AccountId FROM Order WHERE Id IN :ordersIds)
+            ]);
+        for(Account iAccount: accountsMap.values()){
+            AccountsGroupsIds.add(iAccount.AccountGroup__c);
+        }
+        Map<Id, AccountAddress__c> accountAddressMap = new Map<id, AccountAddress__c>([
+            SELECT Id, City__c 
+            FROM AccountAddress__c 
+            WHERE Id IN :accountsAddressesIds
+            ]);
+        Map<Id, City__c> citiesMap = new Map<id, City__c>([
+            SELECT Id, State__c
+            FROM City__c
+            WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountsAddressesIds)
+            ]);
+        for(City__c iCity: citiesMap.values()){
+            statesIds.add(iCity.State__c);
+        }
+        Map<Id, State__c> statesMap = new Map<id, State__c>([
+            SELECT Id, Country__c
+            FROM State__c
+            WHERE Id IN :statesIds
+            ]);
+        for(State__c iState: statesMap.values()){
+            countriesIds.add(iState.Country__c);
+        }
+        searchForTheTax(newOrderItemMap, productsIds, statesIds, distributionCentersIds, 
+        ordersMap, accountAddressMap, citiesMap);
+        searchForTheMostSpecificFreight(newOrderItemMap, productsIds, productHierarchyId, statesIds, countriesIds, 
+        productsMap, ordersMap, accountAddressMap, citiesMap, statesMap);
+        searchForTheMostSpecificMargin(newOrderItemMap, productsIds, productHierarchyId, AccountsGroupsIds, statesIds, countriesIds, 
+        productsMap, ordersMap, accountAddressMap, accountsMap, citiesMap, statesMap);
+    }
+    public static void searchForTheMostSpecificMargin(Map<Id, List<OrderItem>> newOrderItemMap, Set<Id> productsIds, 
+    Set<Id> productHierarchyId, Set<Id> AccountsGroupsIds, Set<Id> statesIds, Set<Id> countriesIds,
+    Map<Id, Product2> productsMap, Map<Id, Order> ordersMap, Map<Id, AccountAddress__c> accountAddressMap, Map<Id, Account> accountsMap, 
+    Map<Id, City__c> citiesMap, Map<Id, State__c> statesMap ){
+    
         List<Margin__c> marginsInDatabase = [ 
             SELECT Id, Product__c, ProductHierarchy__c, Account__c, AccountGroup__c, City__c, State__c, Country__c, Status__c, Value__c
             FROM Margin__c 
@@ -120,7 +198,6 @@ public with sharing class OrderItemTriggerHelper {
             String searchProductHierachyAccountGroupState = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(5);
             String searchProductHierachyAccountGroupCountry = IdsInOrderItemString.get(1)+''+IdsInOrderItemString.get(3)+''+IdsInOrderItemString.get(6);
 
-            
             if(marginsMap.containsKey(searchProductAccountCity)){
                 iOrderItem.MarginPercentage__c = marginsMap.get(searchProductAccountCity).Value__c;
             }
@@ -162,62 +239,11 @@ public with sharing class OrderItemTriggerHelper {
             }
         }
     }
-    public static void searchForTheMostSpecificFreight(List<OrderItem> newRecordList){
-        Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
-        for(OrderItem iOrderItem: newRecordList){
-            if(newOrderItemMap.containsKey(iOrderItem.OrderId)){
-                newOrderItemMap.get(iOrderItem.OrderId).add(iOrderItem);
-            }else{
-                newOrderItemMap.put(iOrderItem.OrderId, new List<OrderItem>{iOrderItem});
-            }
-        }
-        Set<id> productsIds = new Set<id>();
-        Set<id> productHierarchyId = new Set<id>();
-        Set<id> ordersIds = new Set<id>();
-        Set<Id> accountsAddressesIds = new Set<id>();
-        Set<Id> statesIds = new Set<id>();
-        Set<Id> countriesIds = new Set<id>();
-        for(OrderItem iOrderItem: newRecordList){
-            productsIds.add(iOrderItem.Product2Id);
-            ordersIds.add(iOrderItem.OrderId);
-        }
-        Map<Id, Product2> productsMap = new Map<id, Product2>([
-            SELECT Id, ProductHierarchy__c
-            FROM Product2 
-            WHERE Id IN :productsIds
-            ]);
-        for(Product2 iProduct: productsMap.values()){
-            productHierarchyId.add(iProduct.ProductHierarchy__c);
-        }
-        Map<Id, Order> ordersMap = new Map<id, Order>([
-            SELECT Id, AccountAddress__c
-            FROM Order
-            WHERE Id IN :ordersIds
-            ]);
-        for(Order iOrder: ordersMap.values()){
-            accountsAddressesIds.add(iOrder.AccountAddress__c);
-        }
-        Map<Id, AccountAddress__c> accountAddressMap = new Map<id, AccountAddress__c>([
-            SELECT Id, City__c 
-            FROM AccountAddress__c 
-            WHERE Id IN :accountsAddressesIds
-            ]);
-        Map<Id, City__c> citiesMap = new Map<id, City__c>([
-            SELECT Id, State__c
-            FROM City__c
-            WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountsAddressesIds)
-            ]);
-        for(City__c iCity: citiesMap.values()){
-            statesIds.add(iCity.State__c);
-        }
-        Map<Id, State__c> statesMap = new Map<id, State__c>([
-            SELECT Id, Country__c
-            FROM State__c
-            WHERE Id IN :statesIds
-            ]);
-        for(State__c iState: statesMap.values()){
-            countriesIds.add(iState.Country__c);
-        }
+    public static void searchForTheMostSpecificFreight(Map<Id, List<OrderItem>> newOrderItemMap, Set<Id> productsIds, 
+    Set<Id> productHierarchyId, Set<Id> statesIds, Set<Id> countriesIds,
+    Map<Id, Product2> productsMap, Map<Id, Order> ordersMap, Map<Id, AccountAddress__c> accountAddressMap,
+    Map<Id, City__c> citiesMap, Map<Id, State__c> statesMap){
+        
         List<Freight__c> freightsInDatabase = [ 
             SELECT Id, Product__c, ProductHierarchy__c, City__c, State__c, Country__c, Status__c, Value__c
             FROM Freight__c 
@@ -276,46 +302,9 @@ public with sharing class OrderItemTriggerHelper {
         }
     }
 
-    public static void searchForTheTax(List<OrderItem> newRecordList){
-        Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
-        for(OrderItem iOrderItem: newRecordList){
-            if(newOrderItemMap.containsKey(iOrderItem.OrderId)){
-                newOrderItemMap.get(iOrderItem.OrderId).add(iOrderItem);
-            }else{
-                newOrderItemMap.put(iOrderItem.OrderId, new List<OrderItem>{iOrderItem});
-            }
-        }
-        Set<id> productsIds = new Set<id>();
-        Set<id> ordersIds = new Set<id>();
-        Set<Id> distributionCentersIds = new Set<id>();
-        Set<Id> accountAddressIds = new Set<id>();
-        Set<Id> statesIds = new Set<id>();
-        for(OrderItem iOrderItem: newRecordList){
-            productsIds.add(iOrderItem.Product2Id);
-            ordersIds.add(iOrderItem.OrderId);
-        }
-        List<Order> ordersList = [
-            SELECT Id, AccountAddress__c, DistributionCenter__c
-            FROM Order
-            WHERE Id IN :ordersIds
-        ];
-        for(Order iOrder: ordersList){
-            distributionCentersIds.add(iOrder.DistributionCenter__c);
-            accountAddressIds.add(iOrder.AccountAddress__c);
-        }
-        Map<Id, AccountAddress__c> accountAddressMap = new Map<id, AccountAddress__c>([
-            SELECT Id, City__c 
-            FROM AccountAddress__c 
-            WHERE Id IN :accountAddressIds
-            ]);
-        Map<Id, City__c> citiesMap = new Map<id, City__c>([
-            SELECT Id, State__c
-            FROM City__c
-            WHERE Id IN (SELECT City__c FROM AccountAddress__c WHERE Id IN :accountAddressIds)
-            ]);
-        for(City__c iCity: citiesMap.values()){
-            statesIds.add(iCity.State__c);
-        }
+    public static void searchForTheTax(Map<Id, List<OrderItem>> newOrderItemMap, Set<Id> productsIds, Set<Id> statesIds,Set<Id> distributionCentersIds, 
+    Map<Id, Order> ordersMap, Map<Id, AccountAddress__c> accountAddressMap,Map<Id, City__c> citiesMap){
+        
         List<Tax__c> taxesInDatabase = [
             SELECT Id, Name, Product__c, State__c, Status__c, DistributionCenter__c, TaxOnCost__c
             FROM Tax__c
@@ -325,7 +314,7 @@ public with sharing class OrderItemTriggerHelper {
             AND DistributionCenter__c IN :distributionCentersIds
             ];
         Map<String, List<OrderItem>> orderItemMapToSearchTax = new Map<String, List<OrderItem>>();
-        for(Order iOrder: ordersList){
+        for(Order iOrder: ordersMap.values()){
             Id state = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
             for(OrderItem iOrderItem: newOrderItemMap.get(iOrder.Id)){
                 String orderItemKey = iOrderItem.Product2Id+'-'+state+'-'+iOrder.DistributionCenter__c;
@@ -345,6 +334,7 @@ public with sharing class OrderItemTriggerHelper {
             }
         }
     }
+    
 }
 
 

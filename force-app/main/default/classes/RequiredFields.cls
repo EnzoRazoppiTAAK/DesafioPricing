@@ -57,7 +57,10 @@ public with sharing class RequiredFields {
     }
     public static void verifyRequiredParametersInOrderItem(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
-            if(iOrderItem.MarginPercentage__c == null || iOrderItem.TaxPercentage__c == null || iOrderItem.FreightValue__c == null || iOrderItem.ProductionCost__c == null){
+            if(iOrderItem.quantity <= 0){
+                iOrderItem.addError('Adicione uma quantidade maior que 0');
+            }
+            if(iOrderItem.MarginPercentage__c == null || iOrderItem.TaxPercentage__c == null || iOrderItem.FreightValue__c == null || iOrderItem.ListPrice == null){
                 iOrderItem.addError('Não está autorizada a venda deste produto devido a falta de parâmetros, entre em contato o time de pricing.');
             }
         }
