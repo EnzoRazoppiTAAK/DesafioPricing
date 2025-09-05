@@ -33,10 +33,10 @@ public with sharing class OrderItemTriggerHandler {
 
     public void beforeInsert() {
 		OrderItemTriggerHelper.handleInsertOrderItem(this.newRecordList);
-		//RequiredFields.verifyRequiredParametersInOrderItem(this.newRecordList);
+		RequiredFields.verifyRequiredParametersInOrderItem(this.newRecordList);
 	}
 	public void beforeUpdate() {
         OrderItemTriggerHelper.handleUpdateOrderItem(this.newRecordList);
-		//RequiredFields.verifyRequiredParametersInOrderItem(this.newRecordList);
+		RequiredFields.verifyRequiredParametersInOrderItem(this.newRecordList);
     }
 }
