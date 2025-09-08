@@ -10,9 +10,7 @@ public with sharing class MarginTriggerHelper {
     public static void verifyDuplicates(List<Margin__c> newRecordList){
         Map<String, Margin__c> mapMargin = new Map<String, Margin__c>();
         for(Margin__c iMargin: newRecordList){
-            String marginKey = iMargin.Product__c+'-'+iMargin.ProductHierarchy__c+'-'+iMargin.Account__c+'-'+iMargin.AccountGroup__c+'-'+
-            iMargin.City__c+'-'+iMargin.State__c+'-'+iMargin.Country__c;
-
+            String marginKey = getMarginKey(iMargin);
             if(mapMargin.containsKey(marginKey)){
                 iMargin.addError('Já existe uma margem com esses dados');
             }else{
@@ -27,7 +25,6 @@ public with sharing class MarginTriggerHelper {
         Set<Id> citiesIds = new Set<Id>();
         Set<Id> statesIds = new Set<Id>();
         Set<Id> countriesIds = new Set<Id>();
-        Set<Id> distributionCenterIds = new Set<Id>();
         for(Margin__c iMargin: newRecordList){
             productsIds.add(iMargin.Product__c);
             productsHierarchyIds.add(iMargin.ProductHierarchy__c);
@@ -36,11 +33,10 @@ public with sharing class MarginTriggerHelper {
             citiesIds.add(iMargin.City__c);
             statesIds.add(iMargin.State__c);
             countriesIds.add(iMargin.Country__c);
-            distributionCenterIds.add(iMargin.DistributionCenter__c);
         }
 
         List<Margin__c> marginsInDatabase = [
-            SELECT Id, Product__c, ProductHierarchy__c, Account__c, AccountGroup__c, City__c, State__c, Country__c, DistributionCenter__c 
+            SELECT Id, Product__c, ProductHierarchy__c, Account__c, AccountGroup__c, City__c, State__c, Country__c
             FROM Margin__c 
             WHERE Product__c IN :productsIds
             OR ProductHierarchy__c IN :productsHierarchyIds
@@ -49,12 +45,10 @@ public with sharing class MarginTriggerHelper {
             OR City__c IN :citiesIds
             OR State__c IN :statesIds
             OR Country__c IN :countriesIds
-            OR DistributionCenter__c IN :distributionCenterIds
         ];
 
         for(Margin__c iMargin: marginsInDatabase){
-            String marginKey = iMargin.Product__c+'-'+iMargin.ProductHierarchy__c+'-'+iMargin.Account__c+'-'+iMargin.AccountGroup__c+'-'+
-            iMargin.City__c+'-'+iMargin.State__c+'-'+iMargin.Country__c;
+            String marginKey = getMarginKey(iMargin);
             if(mapMargin.containsKey(marginKey)){
                 if(iMargin.Id != mapMargin.get(marginKey).Id){
                     mapMargin.get(marginKey).addError('Já existe uma margem com esses dados');
@@ -92,5 +86,56 @@ public with sharing class MarginTriggerHelper {
                 iMargin.addError('Somente um campo entre Cidade, Estado e País pode ser especificado. Por favor, remova pelo menos um deles.');
             }
         }
+    }
+    public static String getMarginKey(Margin__c margin){
+        if(margin.Product__c != null){
+            if(margin.Account__c != null){
+                if(margin.City__c != null){
+                    return margin.Product__c+'-'+margin.Account__c+'-'+margin.City__c;
+                }
+                if(margin.State__c != null){
+                    return margin.Product__c+'-'+margin.Account__c+'-'+margin.State__c;
+                }
+                if(margin.Country__c != null){
+                    return margin.Product__c+'-'+margin.Account__c+'-'+margin.Country__c;
+                }
+            }
+            if(margin.AccountGroup__c != null){
+                if(margin.City__c != null){
+                    return margin.Product__c+'-'+margin.AccountGroup__c+'-'+margin.City__c;
+                }
+                if(margin.State__c != null){
+                    return margin.Product__c+'-'+margin.AccountGroup__c+'-'+margin.State__c;
+                }
+                if(margin.Country__c != null){
+                    return margin.Product__c+'-'+margin.AccountGroup__c+'-'+margin.Country__c;
+                }
+            }
+        }
+        if(margin.ProductHierarchy__c != null){
+            if(margin.Account__c != null){
+                if(margin.City__c != null){
+                    return margin.ProductHierarchy__c+'-'+margin.Account__c+'-'+margin.City__c;
+                }
+                if(margin.State__c != null){
+                    return margin.ProductHierarchy__c+'-'+margin.Account__c+'-'+margin.State__c;
+                }
+                if(margin.Country__c != null){
+                    return margin.ProductHierarchy__c+'-'+margin.Account__c+'-'+margin.Country__c;
+                }
+            }
+            if(margin.AccountGroup__c != null){
+                if(margin.City__c != null){
+                    return margin.ProductHierarchy__c+'-'+margin.AccountGroup__c+'-'+margin.City__c;
+                }
+                if(margin.State__c != null){
+                    return margin.ProductHierarchy__c+'-'+margin.AccountGroup__c+'-'+margin.State__c;
+                }
+                if(margin.Country__c != null){
+                    return margin.ProductHierarchy__c+'-'+margin.AccountGroup__c+'-'+margin.Country__c;
+                }
+            }
+        }
+        return null;
     }
 }
