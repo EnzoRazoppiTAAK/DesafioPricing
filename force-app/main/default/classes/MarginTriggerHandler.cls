@@ -31,11 +31,11 @@ public with sharing class MarginTriggerHandler {
     }
 
     public void beforeInsert() {
-		RequiredFields.MarginRequiredFields(this.newRecordList);
+		MarginTriggerHelper.MarginRequiredFields(this.newRecordList);
 		MarginTriggerHelper.handleInsertMargin(this.newRecordList);
 	}
 	public void beforeUpdate() {
-		RequiredFields.MarginRequiredFields(this.newRecordList);
+		MarginTriggerHelper.MarginRequiredFields(this.newRecordList);
         MarginTriggerHelper.handleUpdateMargin(this.newRecordList);
     }
 }

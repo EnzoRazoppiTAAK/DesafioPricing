@@ -31,11 +31,11 @@ public with sharing class FreightTriggerHandler {
 	}
 
     public void beforeInsert() {
-		RequiredFields.FreightsRequiredFields(this.newRecordList);
+		FreightTriggerHelper.FreightsRequiredFields(this.newRecordList);
 		FreightTriggerHelper.handleInsertFreight(this.newRecordList);
 	}
 	public void beforeUpdate() {
-		RequiredFields.FreightsRequiredFields(this.newRecordList);
+		FreightTriggerHelper.FreightsRequiredFields(this.newRecordList);
         FreightTriggerHelper.handleUpdateFreight(this.newRecordList);
 	}
 }
