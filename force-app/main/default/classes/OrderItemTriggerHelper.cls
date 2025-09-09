@@ -1,9 +1,11 @@
 public with sharing class OrderItemTriggerHelper {
     public static void handleInsertOrderItem(List<OrderItem> newRecordList){
+        joinDuplicates(newRecordList);
         calculateParametersInOrderItem(newRecordList);
     }
     public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
-       calculateParametersInOrderItem(newRecordList);
+        joinDuplicates(newRecordList);
+        calculateParametersInOrderItem(newRecordList);
     }
     public static void calculateParametersInOrderItem(List<OrderItem> newRecordList){
         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
@@ -107,8 +109,10 @@ public with sharing class OrderItemTriggerHelper {
             String cityIdString = accountAddressMap.get(iOrder.AccountAddress__c).City__c;
             String stateIdString = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
             String countryIdString = statesMap.get(citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c).Country__c;
+
             for(OrderItem iOrderItem: newOrderItemMap.get(iOrder.Id)){
                 String productHierarchyIdString = productsMap.get(iOrderItem.Product2Id).ProductHierarchy__c;
+
                 if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountIdString+'-'+cityIdString)){
                     iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountIdString+'-'+cityIdString).Value__c;
                 }
@@ -166,7 +170,6 @@ public with sharing class OrderItemTriggerHelper {
         ];
 
         Map<String, Freight__c> freightsMap = new Map<String, Freight__c>();
-        Map<String, Freight__c> freightsMapclone = freightsMap.clone();
         for(Freight__c iFreight: freightsInDatabase){
             freightsMap.put(FreightTriggerHelper.getFreightKey(iFreight), iFreight);
         }
@@ -233,7 +236,9 @@ public with sharing class OrderItemTriggerHelper {
     
     public static void verifyRequiredParametersInOrderItem(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
-            if(iOrderItem.quantity <= 0){
+            Decimal test = iOrderItem.Quantity;
+            System.debug('Teste -> '+test);
+            if(iOrderItem.Quantity <= 0){
                 iOrderItem.addError('Adicione uma quantidade maior que 0');
             }
             if(iOrderItem.MarginPercentage__c == null){
@@ -249,6 +254,50 @@ public with sharing class OrderItemTriggerHelper {
                 iOrderItem.addError('Não está autorizada a venda deste produto devido a falta de custo de produção (ListPrice), entre em contato o time de pricing.');
             }
         }
+    }
+
+    public static void joinDuplicates(List<OrderItem> newRecordList){
+
+        Map<String, OrderItem> newOrderItemMap = new Map<String, OrderItem>();
+        for(OrderItem iOrderItem: newRecordList){
+            String orderItemKey = iOrderItem.OrderId+'-'+iOrderItem.Product2Id+'-'+iOrderItem.UnitPrice;
+            if(newOrderItemMap.containsKey(orderItemKey)){
+                newOrderItemMap.get(orderItemKey).Quantity += iOrderItem.Quantity;
+                iOrderItem.addError('Dois produtos iguais no mesmo pedido, adicione este novamente ou atualize a quantidade do produto no pedido!');
+            }else{
+                newOrderItemMap.put(orderItemKey, iOrderItem);
+            }
+        }
+
+        Set<Id> ordersIds = new Set<Id>();
+        Set<Id> productsIds = new Set<Id>();
+        Set<Decimal> unitPrices = new Set<Decimal>();
+        for(OrderItem iOrderItem: newRecordList){
+            ordersIds.add(iOrderItem.OrderId);
+            productsIds.add(iOrderItem.Product2Id);
+            unitPrices.add(iOrderItem.UnitPrice);
+        }
+
+        Map<Id, OrderItem> orderItemsInDatabase = new  Map<Id, OrderItem>([
+            SELECT Id, OrderId, Product2Id, UnitPrice, Quantity
+            FROM OrderItem
+            WHERE OrderId IN :ordersIds
+            AND Product2Id IN :productsIds
+            AND UnitPrice IN :unitPrices
+        ]);
+        
+        List<OrderItem> listToDelete = new List<OrderItem>();
+        for(OrderItem iOrderItem: orderItemsInDatabase.values()){
+            String orderItemKey = iOrderItem.OrderId+'-'+iOrderItem.Product2Id+'-'+iOrderItem.UnitPrice;
+            if(newOrderItemMap.containsKey(orderItemKey)){
+                if(newOrderItemMap.get(orderItemKey).Id != iOrderItem.Id){
+                    listToDelete.add(iOrderItem);
+                    newOrderItemMap.get(orderItemKey).Quantity += iOrderItem.Quantity;
+                }
+            }
+        }
+
+        delete listToDelete;
     }
 }
 

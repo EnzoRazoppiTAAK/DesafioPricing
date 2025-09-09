@@ -32,11 +32,11 @@ public with sharing class OrderItemTriggerHandler {
     }
 
     public void beforeInsert() {
-		OrderItemTriggerHelper.handleInsertOrderItem(this.newRecordList);
-		OrderItemTriggerHelper.verifyRequiredParametersInOrderItem(this.newRecordList);
+		OrderItemTriggerHelper.handleInsertOrderItem(newRecordList);
+		OrderItemTriggerHelper.verifyRequiredParametersInOrderItem(newRecordList);
 	}
 	public void beforeUpdate() {
-        OrderItemTriggerHelper.handleUpdateOrderItem(this.newRecordList);
-		OrderItemTriggerHelper.verifyRequiredParametersInOrderItem(this.newRecordList);
+        OrderItemTriggerHelper.handleUpdateOrderItem(newRecordList);
+		OrderItemTriggerHelper.verifyRequiredParametersInOrderItem(newRecordList);
     }
 }

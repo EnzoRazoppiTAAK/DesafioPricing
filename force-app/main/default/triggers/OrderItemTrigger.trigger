@@ -1,4 +1,4 @@
-trigger OrdemItemTrigger on OrderItem (before insert, before update) {
+trigger OrderItemTrigger on OrderItem (before insert, before update) {
     System.debug('OrderItem Trigger Start => ' + Trigger.operationType);
 	OrderItemTriggerHandler handler = new OrderItemTriggerHandler(
 		Trigger.old,
