@@ -14,6 +14,7 @@ public with sharing class OrderItemTriggerHelper {
                 newOrderItemMap.put(iOrderItem.OrderId, new List<OrderItem>{iOrderItem});
             }
         }
+
         Set<id> productsIds = new Set<id>();
         Set<id> productHierarchyId = new Set<id>();
         Set<id> ordersIds = new Set<id>();
@@ -21,6 +22,7 @@ public with sharing class OrderItemTriggerHelper {
         Set<Id> AccountsGroupsIds = new Set<id>();
         Set<Id> statesIds = new Set<id>();
         Set<Id> countriesIds = new Set<id>();
+
         for(OrderItem iOrderItem: newRecordList){
             productsIds.add(iOrderItem.Product2Id);
             ordersIds.add(iOrderItem.OrderId);
@@ -94,11 +96,11 @@ public with sharing class OrderItemTriggerHelper {
             OR Country__c IN :countriesIds)
             AND Status__c = 'Aprovado'
         ];
+
         Map<String, Margin__c> marginsMap = new Map<String, Margin__c>();
         for(Margin__c iMargin: marginsInDatabase){
             marginsMap.put(MarginTriggerHelper.getMarginKey(iMargin), iMargin);
         }
-        Map<OrderItem, String> orderItemMapToSearchMargin = new Map<OrderItem, String>();
         for(Order iOrder: ordersMap.values()){
             String accountIdString = accountsMap.get(iOrder.AccountId).Id;
             String accountGroupIdString = accountsMap.get(iOrder.AccountId).AccountGroup__c;
@@ -107,8 +109,42 @@ public with sharing class OrderItemTriggerHelper {
             String countryIdString = statesMap.get(citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c).Country__c;
             for(OrderItem iOrderItem: newOrderItemMap.get(iOrder.Id)){
                 String productHierarchyIdString = productsMap.get(iOrderItem.Product2Id).ProductHierarchy__c;
-                String orderItemKey = iOrderItem.Product2Id+'-'+productHierarchyIdString+'-'+accountIdString+'-'+accountGroupIdString+'-'+cityIdString+'-'+stateIdString+'-'+countryIdString;
-                orderItemMapToSearchMargin.put(iOrderItem, orderItemKey);
+                if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountIdString+'-'+cityIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountIdString+'-'+cityIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountIdString+'-'+stateIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountIdString+'-'+stateIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountIdString+'-'+countryIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountIdString+'-'+countryIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountGroupIdString+'-'+cityIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountGroupIdString+'-'+cityIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountGroupIdString+'-'+stateIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountGroupIdString+'-'+stateIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(iOrderItem.Product2Id+'-'+accountGroupIdString+'-'+countryIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(iOrderItem.Product2Id+'-'+accountGroupIdString+'-'+countryIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(productHierarchyIdString+'-'+accountIdString+'-'+cityIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(productHierarchyIdString+'-'+accountIdString+'-'+cityIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(productHierarchyIdString+'-'+accountIdString+'-'+stateIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(productHierarchyIdString+'-'+accountIdString+'-'+stateIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(productHierarchyIdString+'-'+accountIdString+'-'+countryIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(productHierarchyIdString+'-'+accountIdString+'-'+countryIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(productHierarchyIdString+'-'+accountGroupIdString+'-'+cityIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(productHierarchyIdString+'-'+accountGroupIdString+'-'+cityIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(productHierarchyIdString+'-'+accountGroupIdString+'-'+stateIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(productHierarchyIdString+'-'+accountGroupIdString+'-'+stateIdString).Value__c;
+                }
+                else if(marginsMap.containsKey(productHierarchyIdString+'-'+accountGroupIdString+'-'+countryIdString)){
+                    iOrderItem.MarginPercentage__c = marginsMap.get(productHierarchyIdString+'-'+accountGroupIdString+'-'+countryIdString).Value__c;
+                }
             }
         }
     }
@@ -126,20 +162,38 @@ public with sharing class OrderItemTriggerHelper {
             OR State__c IN :statesIds
             OR Country__c IN :countriesIds)
             AND Status__c = 'Aprovado'
-            ];
+        
+        ];
+
         Map<String, Freight__c> freightsMap = new Map<String, Freight__c>();
+        Map<String, Freight__c> freightsMapclone = freightsMap.clone();
         for(Freight__c iFreight: freightsInDatabase){
             freightsMap.put(FreightTriggerHelper.getFreightKey(iFreight), iFreight);
         }
-        Map<OrderItem, String> orderItemMapToSearchFreight = new Map<OrderItem, String>();
         for(Order iOrder: ordersMap.values()){
             String cityIdString = accountAddressMap.get(iOrder.AccountAddress__c).City__c;
             String stateIdString = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
             String countryIdString = statesMap.get(citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c).Country__c;
             for(OrderItem iOrderItem: newOrderItemMap.get(iOrder.Id)){
                 String productHierarchyIdString = productsMap.get(iOrderItem.Product2Id).ProductHierarchy__c;
-                String orderItemKey = iOrderItem.Product2Id+'-'+productHierarchyIdString+'-'+cityIdString+'-'+stateIdString+'-'+countryIdString;
-                orderItemMapToSearchFreight.put(iOrderItem, orderItemKey);
+                if(freightsMap.containsKey(iOrderItem.Product2Id+'-'+cityIdString)){
+                    iOrderItem.FreightValue__c = freightsMap.get(iOrderItem.Product2Id+'-'+cityIdString).Value__c;
+                }
+                else if(freightsMap.containsKey(iOrderItem.Product2Id+'-'+stateIdString)){
+                    iOrderItem.FreightValue__c = freightsMap.get(iOrderItem.Product2Id+'-'+stateIdString).Value__c;
+                }
+                else if(freightsMap.containsKey(iOrderItem.Product2Id+'-'+countryIdString)){
+                    iOrderItem.FreightValue__c = freightsMap.get(iOrderItem.Product2Id+'-'+countryIdString).Value__c;
+                }
+                else if(freightsMap.containsKey(productHierarchyIdString+'-'+cityIdString)){
+                    iOrderItem.FreightValue__c = freightsMap.get(productHierarchyIdString+'-'+cityIdString).Value__c;
+                }
+                else if(freightsMap.containsKey(productHierarchyIdString+'-'+stateIdString)){
+                    iOrderItem.FreightValue__c = freightsMap.get(productHierarchyIdString+'-'+stateIdString).Value__c;
+                }
+                else if(freightsMap.containsKey(productHierarchyIdString+'-'+countryIdString)){
+                    iOrderItem.FreightValue__c = freightsMap.get(productHierarchyIdString+'-'+countryIdString).Value__c;
+                }
             }
         }
     }
@@ -148,12 +202,13 @@ public with sharing class OrderItemTriggerHelper {
     Map<Id, Order> ordersMap, Map<Id, AccountAddress__c> accountAddressMap,Map<Id, City__c> citiesMap){
         
         List<Tax__c> taxesInDatabase = [
-            SELECT Id, Name, Product__c, State__c, Status__c, DistributionCenter__c, TaxOnCost__c
+            SELECT Id, Name, Product__c, State__c, Status__c, TaxOnCost__c
             FROM Tax__c
             WHERE Product__c IN :productsIds
             AND State__c IN :statesIds
             AND Status__c = 'Aprovado'
-            ];
+        ];
+
         Map<String, List<OrderItem>> orderItemMapToSearchTax = new Map<String, List<OrderItem>>();
         for(Order iOrder: ordersMap.values()){
             Id state = citiesMap.get(accountAddressMap.get(iOrder.AccountAddress__c).City__c).State__c;
@@ -195,7 +250,6 @@ public with sharing class OrderItemTriggerHelper {
             }
         }
     }
-
 }
 
 
