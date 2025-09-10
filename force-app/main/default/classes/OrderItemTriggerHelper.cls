@@ -262,7 +262,6 @@ public with sharing class OrderItemTriggerHelper {
         for(OrderItem iOrderItem: newRecordList){
             String orderItemKey = iOrderItem.OrderId+'-'+iOrderItem.Product2Id+'-'+iOrderItem.UnitPrice;
             if(newOrderItemMap.containsKey(orderItemKey)){
-                newOrderItemMap.get(orderItemKey).Quantity += iOrderItem.Quantity;
                 iOrderItem.addError('Dois produtos iguais no mesmo pedido, adicione este novamente ou atualize a quantidade do produto no pedido!');
             }else{
                 newOrderItemMap.put(orderItemKey, iOrderItem);
