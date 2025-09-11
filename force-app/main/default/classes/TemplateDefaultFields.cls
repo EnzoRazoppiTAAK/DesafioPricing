@@ -375,6 +375,13 @@ public with sharing class TemplateDefaultFields {
 			};
 		}
     }
+	public class CityDefaults implements FieldDefaults{
+        public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
+			return new Map<String, Object>{
+				'Name' => 'City Test ' + String.valueOf(countSObjectCreated)
+			};
+		}
+    }
     public class StateDefaults implements FieldDefaults{
         public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
 			return new Map<String, Object>{
@@ -386,7 +393,7 @@ public with sharing class TemplateDefaultFields {
     public class CountryDefaults implements FieldDefaults{
         public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
 			return new Map<String, Object>{
-				'Name' => 'Distribuition Center Test ' + String.valueOf(countSObjectCreated),
+				'Name' => 'Country Center Test ' + String.valueOf(countSObjectCreated),
                 'Acronym__c' => 'CR'
 			};
 		}
@@ -394,7 +401,32 @@ public with sharing class TemplateDefaultFields {
     public class ProductHierarchyDefaults implements FieldDefaults{
         public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
 			return new Map<String, Object>{
-				'Name' => 'Distribuition Center Test ' + String.valueOf(countSObjectCreated)
+				'Name' => 'Product Hierarchy Test ' + String.valueOf(countSObjectCreated)
+			};
+		}
+    }
+	public class FreightDefaults implements FieldDefaults{
+        public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
+			return new Map<String, Object>{
+				'Name' => 'Freight Test ' + String.valueOf(countSObjectCreated),
+				'Status__c' => 'Bloqueado',
+				'Value__c' => 0.00d
+			};
+		}
+    }
+	public class AccountGroupDefaults implements FieldDefaults{
+        public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
+			return new Map<String, Object>{
+				'Name' => 'Account Test ' + String.valueOf(countSObjectCreated)
+			};
+		}
+    }
+	public class MarginDefaults implements FieldDefaults{
+        public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
+			return new Map<String, Object>{
+				'Name' => 'Margin Test ' + String.valueOf(countSObjectCreated),
+				'Status__c' => 'Bloqueado',
+				'Value__c' => 0.00d
 			};
 		}
     }
