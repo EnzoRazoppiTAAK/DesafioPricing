@@ -1,9 +1,9 @@
 public with sharing class OrderTriggerHelper {
     public static void handleUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
-        cannotUpdateTheAccountOrder(newRecordList, oldRecordMap);
+        cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         updateAfterActivate(newRecordList, oldRecordMap);
     }
-    public static void cannotUpdateTheAccountOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
+    public static void cannotUpdateTheOrderAccount(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         for(Order iOrder: newRecordList){
             if(iOrder.AccountId != oldRecordMap.get(iOrder.Id).AccountId){
                 iOrder.addError('Não é possível trocar a conta do pedido depois de ser criado!');
