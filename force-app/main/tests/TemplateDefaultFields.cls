@@ -3,7 +3,7 @@ public with sharing class TemplateDefaultFields {
 		Map<String, Object> getFieldDefaults(Decimal countSObjectCreated);
 	}
 
-	public class UserDefaults implements FieldDefaults {
+	/*public class UserDefaults implements FieldDefaults {
 		public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
 			return new Map<String, Object>{
 				'Username' => 'test' + Datetime.now().getTime() +'@test.com',
@@ -18,7 +18,7 @@ public with sharing class TemplateDefaultFields {
 				'IsActive' => true
 			};
 		}
-	}
+	}*/
 
 	public class AccountDefaults implements FieldDefaults {
 		public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
@@ -28,7 +28,7 @@ public with sharing class TemplateDefaultFields {
 		}
 	}
 
-	public class ContactDefaults implements FieldDefaults {
+	/*public class ContactDefaults implements FieldDefaults {
 		public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
 			return new Map<String, Object>{
 				'LastName' => 'Contact - Teste ' + String.valueOf(countSObjectCreated)
@@ -36,7 +36,7 @@ public with sharing class TemplateDefaultFields {
 		}
 	}
 
-	/*public class AssetDefaults implements FieldDefaults {
+	public class AssetDefaults implements FieldDefaults {
 		public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
 			return new Map<String, Object>{
 				'Name' => 'Asset - Teste ' + String.valueOf(countSObjectCreated)
