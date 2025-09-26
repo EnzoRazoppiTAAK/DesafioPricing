@@ -2,10 +2,12 @@ public with sharing class OrderItemTriggerHelper {
     public static void handleInsertOrderItem(List<OrderItem> newRecordList){
         joinDuplicates(newRecordList);
         calculateParametersInOrderItem(newRecordList);
+        calculateFinalPrice(newRecordList);
     }
     public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
         joinDuplicates(newRecordList);
         calculateParametersInOrderItem(newRecordList);
+        calculateFinalPrice(newRecordList);
     }
     public static void calculateParametersInOrderItem(List<OrderItem> newRecordList){
         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
@@ -237,7 +239,6 @@ public with sharing class OrderItemTriggerHelper {
     public static void verifyRequiredParametersInOrderItem(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
             Decimal test = iOrderItem.Quantity;
-            System.debug('Teste -> '+test);
             if(iOrderItem.Quantity <= 0){
                 iOrderItem.addError('Adicione uma quantidade maior que 0');
             }
@@ -262,12 +263,10 @@ public with sharing class OrderItemTriggerHelper {
         for(OrderItem iOrderItem: newRecordList){
             String orderItemKey = iOrderItem.OrderId+'-'+iOrderItem.Product2Id+'-'+iOrderItem.UnitPrice;
             if(newOrderItemMap.containsKey(orderItemKey)){
-                System.debug('Key -> '+orderItemKey);
                 iOrderItem.addError('Dois produtos iguais no mesmo pedido, adicione este novamente ou atualize a quantidade do produto no pedido!');
             }else{
                 newOrderItemMap.put(orderItemKey, iOrderItem);
             }
-            System.debug(iOrderItem.hasErrors());
         }
 
         Set<Id> ordersIds = new Set<Id>();
@@ -299,6 +298,12 @@ public with sharing class OrderItemTriggerHelper {
         }
 
         delete listToDelete;
+    }
+
+    public static void calculateFinalPrice(List<OrderItem> newRecordList){
+        for(OrderItem iOrderItem: newRecordList){
+            iOrderItem.FinalPrice__c =(iOrderItem.UnitPrice + (iOrderItem.FreightValue__c/100)) * (1+  (iOrderItem.MarginPercentage__c/100)) * (1+ (iOrderItem.TaxPercentage__c/100));
+        }
     }
 }
 
