@@ -8,6 +8,7 @@ public with sharing class OrderItemTriggerHelper {
         joinDuplicates(newRecordList);
         calculateParametersInOrderItem(newRecordList);
         calculateFinalPrice(newRecordList);
+        isERPItem(newRecordList);
     }
     public static void calculateParametersInOrderItem(List<OrderItem> newRecordList){
         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
@@ -303,6 +304,16 @@ public with sharing class OrderItemTriggerHelper {
     public static void calculateFinalPrice(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
             iOrderItem.FinalPrice__c =(iOrderItem.UnitPrice + (iOrderItem.FreightValue__c/100)) * (1+  (iOrderItem.MarginPercentage__c/100)) * (1+ (iOrderItem.TaxPercentage__c/100));
+        }
+    }
+
+    public static void isERPItem(List<OrderItem> newRecordList){
+        for(OrderItem iOrderItem: newRecordList){
+            if(iOrderItem.TotvsItem__c == true){
+                if(UserInfo.getUserName() != 'integration@00dbm00000s4xofean.com'){
+                    iOrderItem.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
+                }
+            }
         }
     }
 }

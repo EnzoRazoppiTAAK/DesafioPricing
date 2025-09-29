@@ -1,35 +1,6 @@
 @RestResource(urlMapping='/upsertOrder/*')
 global with sharing class Integration {
 
-    @HttpGet
-    global static Order doGet(){
-        RestRequest request = RestContext.request;
-        RestResponse response = RestContext.response;
-        String orderId = request.requestURI.substring(request.requestURI.lastIndexOf('/')+1);
-        List<Order> order = [
-            SELECT Id, AccountId, DistributionCenter__c, PaymentCondition__c, ContractId, AccountAddress__c, Observation__c, TotalAmount, EffectiveDate, Pricebook2Id, Status, FreightType__c 
-            FROM Order 
-            WHERE ExternalId__c = :orderId 
-            LIMIT 1
-        ];
-        if(order.size() == 0){
-            response.statusCode = 404;
-            throw new NotFoundException('Order not found with ExternalId: ' + orderId + '.');
-        }else{
-            SentOrderLog__c sentOrderLog = new SentOrderLog__c();
-            sentOrderLog.Order__c = order.get(0).Id;
-            sentOrderLog.Application__c = 'API clients';
-            sentOrderLog.LogUserId__c = UserInfo.getUserId();
-            sentOrderLog.Operation__c = 'REST GET';
-            sentOrderLog.Request__c = 'API';
-            sentOrderLog.StartTime__c = datetime.now();
-            sentOrderLog.Status__c = 'Success';
-
-            insert sentOrderLog;
-            return order.get(0);
-        }
-    }
-
     global class receivedOrderItemsFromTOTVS {
         public String productCode;
         public String orderitemCode;
@@ -56,15 +27,52 @@ global with sharing class Integration {
         public Integer priority;
         List<receivedOrderItemsFromTOTVS> orderItems;
     }
+
+    global class ResponsePut{
+        public String salesforceId;
+        public String externalCode;
+        public Boolean status;
+        public String errorMessage;
+        public String sObjectType;
+    }
+
+    @HttpGet
+    global static Order doGet(){
+        RestRequest request = RestContext.request;
+        RestResponse response = RestContext.response;
+        String orderExternalId = request.requestURI.substring(request.requestURI.lastIndexOf('/')+1);
+        try{
+            Order order = [
+                SELECT Id, AccountId, DistributionCenter__c, PaymentCondition__c, ContractId, AccountAddress__c, Observation__c, TotalAmount, EffectiveDate, Pricebook2Id, Status, FreightType__c 
+                FROM Order 
+                WHERE ExternalId__c = :orderExternalId 
+                LIMIT 1
+            ];
+            if(order == null){
+                response.statusCode = 404;
+                throw new NotFoundException('Order not found with ExternalId: ' + orderExternalId + '.');
+            }else{
+                SentOrderLog__c sentOrderLog = new SentOrderLog__c();
+                sentOrderLog.Order__c = order.Id;
+                sentOrderLog.Application__c = 'API clients';
+                sentOrderLog.LogUserId__c = UserInfo.getUserId();
+                sentOrderLog.Operation__c = 'REST GET';
+                sentOrderLog.Request__c = 'API';
+                sentOrderLog.StartTime__c = datetime.now();
+                sentOrderLog.Status__c = 'Success';
+
+                insert sentOrderLog;
+                return order;
+            }
+        }catch(Exception e){
+            response.statusCode = 404;
+            return null;
+        }
+    }
     
     @HttpPut
-    global static void doPut(List<receivedOrderFromTOTVS> request){
-        ReceivedOrderLog__c receivedOrderLog = new ReceivedOrderLog__c();
-        receivedOrderLog.Application__c = 'API clients';
-        receivedOrderLog.LogUserId__c = UserInfo.getUserId();
-        receivedOrderLog.Operation__c = 'REST GET';
-        receivedOrderLog.Request__c = 'API';
-        receivedOrderLog.StartTime__c = datetime.now();
+    global static List<ResponsePut> doPut(List<receivedOrderFromTOTVS> request){
+        RestResponse response = RestContext.response;
 
         Set<String> accountsExtenalIds = new Set<String>();
         Set<String> accountAddressesExternalIds = new Set<String>();
@@ -134,58 +142,58 @@ global with sharing class Integration {
             FROM PricebookEntry
             WHERE Product2Id IN :productsIds
         ]);
-        Map<Id, Id> pricebookEntryMap = new Map<Id, Id>();
-        for(PricebookEntry iPricebookEntry: pricebookEntryList){
-            pricebookEntryMap.put(iPricebookEntry.Product2Id, iPricebookEntry.Id);
-        }
-        Pricebook2 pricebook = [SELECT Id FROM Pricebook2 WHERE Name = 'Agro Implements'];
 
-        List<Order> receivedOrdersList = new List<Order>();
-        Integer count = 0;
-        for(receivedOrderFromTOTVS iReceivedOrderFromTOTVS: request){
-            count++;
-            Order order = new Order();
-            if(iReceivedOrderFromTOTVS.clienteCode == null || !accountsMap.containsKey(iReceivedOrderFromTOTVS.clienteCode)){
-                throw new NotFoundException('Client not found with code: ' + iReceivedOrderFromTOTVS.clienteCode + 'in order '+ count + '.');
-            }else{
-                order.AccountId = accountsMap.get(iReceivedOrderFromTOTVS.clienteCode).Id;
-            }
-            if(iReceivedOrderFromTOTVS.addressCode == null || !accountAddressesMap.containsKey(iReceivedOrderFromTOTVS.addressCode)){
-                throw new NotFoundException('Address not found with code: ' + iReceivedOrderFromTOTVS.addressCode + ' in order '+ count + '.');
-            }else{
-                order.AccountAddress__c = accountAddressesMap.get(iReceivedOrderFromTOTVS.addressCode).Id;
-            }
-            if(iReceivedOrderFromTOTVS.conditionCode == null || !PaymentConditionMap.containsKey(iReceivedOrderFromTOTVS.conditionCode)){
-                throw new NotFoundException('Payment condition not found with code: ' + iReceivedOrderFromTOTVS.conditionCode + ' in order '+ count + '.');
-            }else{
-                order.PaymentCondition__c = PaymentConditionMap.get(iReceivedOrderFromTOTVS.conditionCode).Id;
-            }
-            if(iReceivedOrderFromTOTVS.distributionCenter == null || !distributionCenterMap.containsKey(iReceivedOrderFromTOTVS.distributionCenter)){
-                throw new NotFoundException('Distribution center not found with code: ' + iReceivedOrderFromTOTVS.distributionCenter + ' in order '+ count + '.');
-            }else{
-                order.DistributionCenter__c = distributionCenterMap.get(iReceivedOrderFromTOTVS.distributionCenter).Id;
-            }
-            if(iReceivedOrderFromTOTVS.orderNumber == null){
-                throw new NotFoundException('Order not found with code: ' + iReceivedOrderFromTOTVS.orderNumber + ' in order '+ count + '.');
-            }else{
-                order.ExternalId__c = iReceivedOrderFromTOTVS.orderNumber;
-            }
-
-            order.EffectiveDate = iReceivedOrderFromTOTVS.effectiveDate;
-            order.FreightType__c = iReceivedOrderFromTOTVS.freightType;
-            order.deliveryDate__c = date.valueOf(iReceivedOrderFromTOTVS.deliveryDate);
-            order.deliveryDateERP__c = date.valueOf(iReceivedOrderFromTOTVS.deliveryDateERP);
-            order.Status = iReceivedOrderFromTOTVS.status;
-            order.Observation__c = iReceivedOrderFromTOTVS.obs;
-            order.Priority__c = iReceivedOrderFromTOTVS.priority;
-
-            receivedOrdersList.add(order);
-        }
-
-        Savepoint sp = Database.setSavepoint(); 
+        Savepoint sp = Database.setSavepoint();
 
         try{
-            Database.upsert(receivedOrdersList, Order.ExternalId__c, false);
+            List<Order> receivedOrdersList = new List<Order>();
+            Integer count = 0;
+            for(receivedOrderFromTOTVS iReceivedOrderFromTOTVS: request){
+                count++;
+                Order order = new Order();
+                if(iReceivedOrderFromTOTVS.clienteCode == null || !accountsMap.containsKey(iReceivedOrderFromTOTVS.clienteCode)){
+                    response.statusCode = 400;
+                    throw new NotFoundException('Client not found with code: ' + iReceivedOrderFromTOTVS.clienteCode + 'in order '+ count + '.');
+                }else{
+                    order.AccountId = accountsMap.get(iReceivedOrderFromTOTVS.clienteCode).Id;
+                }
+                if(iReceivedOrderFromTOTVS.addressCode == null || !accountAddressesMap.containsKey(iReceivedOrderFromTOTVS.addressCode)){
+                    response.statusCode = 400;
+                    throw new NotFoundException('Address not found with code: ' + iReceivedOrderFromTOTVS.addressCode + 'in order '+ count + '.');
+                }else{
+                    order.AccountAddress__c = accountAddressesMap.get(iReceivedOrderFromTOTVS.addressCode).Id;
+                }
+                if(iReceivedOrderFromTOTVS.conditionCode == null || !PaymentConditionMap.containsKey(iReceivedOrderFromTOTVS.conditionCode)){
+                    response.statusCode = 400;
+                    throw new NotFoundException('Payment condition not found with code: ' + iReceivedOrderFromTOTVS.conditionCode + 'in order '+ count + '.');
+                }else{
+                    order.PaymentCondition__c = PaymentConditionMap.get(iReceivedOrderFromTOTVS.conditionCode).Id;
+                }
+                if(iReceivedOrderFromTOTVS.distributionCenter == null || !distributionCenterMap.containsKey(iReceivedOrderFromTOTVS.distributionCenter)){
+                    response.statusCode = 400;
+                    throw new NotFoundException('Distribution center not found with code: ' + iReceivedOrderFromTOTVS.distributionCenter + 'in order '+ count + '.');
+                }else{
+                    order.DistributionCenter__c = distributionCenterMap.get(iReceivedOrderFromTOTVS.distributionCenter).Id;
+                }
+                if(iReceivedOrderFromTOTVS.orderNumber == null){
+                    response.statusCode = 400;
+                    throw new NotFoundException('Order not found with code: ' + iReceivedOrderFromTOTVS.orderNumber + 'in order '+ count + '.');
+                }else{
+                    order.ExternalId__c = iReceivedOrderFromTOTVS.orderNumber;
+                }
+
+                order.EffectiveDate = iReceivedOrderFromTOTVS.effectiveDate;
+                order.FreightType__c = iReceivedOrderFromTOTVS.freightType;
+                order.deliveryDate__c = date.valueOf(iReceivedOrderFromTOTVS.deliveryDate);
+                order.deliveryDateERP__c = date.valueOf(iReceivedOrderFromTOTVS.deliveryDateERP);
+                order.Status = iReceivedOrderFromTOTVS.status;
+                order.Observation__c = iReceivedOrderFromTOTVS.obs;
+                order.Priority__c = iReceivedOrderFromTOTVS.priority;
+                order.ERPItem__c = true;
+
+                receivedOrdersList.add(order);
+            }
+            Database.upsert(receivedOrdersList, Order.ExternalId__c, true);
 
             Map<String, Order> ordersMap = new Map<String, Order>();
             for(Order iOrder: receivedOrdersList){
@@ -200,28 +208,105 @@ global with sharing class Integration {
                 for(receivedOrderItemsFromTOTVS iReceivedOrderItemsFromTOTVS: iReceivedOrderFromTOTVS.orderItems){
                     OrderItem orderItem = new OrderItem();
                     if(iReceivedOrderItemsFromTOTVS.productCode == null || !productsMap.containsKey(iReceivedOrderItemsFromTOTVS.productCode)){
+                        response.statusCode = 400;
                         throw new NotFoundException('Product not found with code:' + iReceivedOrderItemsFromTOTVS.productCode + ' in order '+ count + '.');
                     }else{
                         orderItem.Product2Id = productsMap.get(iReceivedOrderItemsFromTOTVS.productCode).Id;
                     }
+                    ordersItemsExternalIds.add(iReceivedOrderItemsFromTOTVS.orderitemCode);
                     orderItem.ExternalId__c = iReceivedOrderItemsFromTOTVS.orderitemCode;
                     orderItem.TotvsItem__c = iReceivedOrderItemsFromTOTVS.totvsItem;
                     orderItem.UnitPrice = iReceivedOrderItemsFromTOTVS.unitPrice;
                     orderItem.deliveryDate__c = date.valueOf(iReceivedOrderItemsFromTOTVS.deliveryDate);
                     orderItem.ListPrice	 = iReceivedOrderItemsFromTOTVS.motorPrice;
                     orderItem.Quantity = iReceivedOrderItemsFromTOTVS.quantity;
-                    orderItem.Status__c = iReceivedOrderItemsFromTOTVS.status;
                     orderItem.OrderId = ordersMap.get(iReceivedOrderFromTOTVS.orderNumber).Id;
 
                     receivedOrdersItermsList.add(orderItem);
                 }
             }
 
-            Database.upsert(receivedOrdersItermsList, OrderItem.ExternalId__c, false);
+            List<OrderItem> orderItemsInDatabase = new List<OrderItem>([
+                SELECT Id, OrderId, Product2Id, UnitPrice, Quantity
+                FROM OrderItem
+                WHERE ExternalId__c IN :ordersItemsExternalIds
+            ]);
+
+            delete orderItemsInDatabase;
+
+            Database.upsert(receivedOrdersItermsList, OrderItem.ExternalId__c, true);
+
+            List<ReceivedOrderLog__c> receivedOrderLogsToInsert = new List<ReceivedOrderLog__c>();
+            List<ResponsePut> responsePutList = new List<ResponsePut>();
+            for(Order iOrder: receivedOrdersList){
+                ReceivedOrderLog__c receivedOrderLog = new ReceivedOrderLog__c();
+                receivedOrderLog.Application__c = 'API clients';
+                receivedOrderLog.LogUserId__c = UserInfo.getUserId();
+                receivedOrderLog.Operation__c = 'REST PUT';
+                receivedOrderLog.Request__c = 'API';
+                receivedOrderLog.StartTime__c = datetime.now();
+                receivedOrderLog.Status__c = 'Success';
+                receivedOrderLog.Order__c = iOrder.Id;
+                receivedOrderLogsToInsert.add(receivedOrderLog);
+                
+                ResponsePut responsePut = new ResponsePut();
+                responsePut.salesforceId = iOrder.Id;
+                responsePut.externalCode = iOrder.orderNumber;
+                responsePut.status = true;
+                responsePut.errorMessage = '';
+                responsePut.sObjectType = 'Order';
+                responsePutList.add(responsePut);
+            }
+
+            insert receivedOrderLogsToInsert;
+            response.statusCode = 201;
+            return responsePutList;
 
         }catch(Exception e){
-            System.debug('Error: ' + e.getMessage());
             Database.rollback(sp);
+
+            response.statusCode = 400;
+            ResponsePut responsePut = new ResponsePut();
+            responsePut.errorMessage = e.getMessage();
+            responsePut.status = false;
+            List<ResponsePut> responsePutList = new List<ResponsePut>{responsePut};
+
+            return responsePutList;
         }
-    } 
+    }
+
+    @HttpDelete
+    global static void doDelete(){
+        RestRequest request = RestContext.request;
+        RestResponse response = RestContext.response;
+        String orderExternalId = request.requestURI.substring(request.requestURI.lastIndexOf('/')+1);
+        try{
+            Order order = [
+                SELECT Id, AccountId, DistributionCenter__c, PaymentCondition__c, ContractId, AccountAddress__c, Observation__c, TotalAmount, EffectiveDate, Pricebook2Id, Status, FreightType__c 
+                FROM Order 
+                WHERE ExternalId__c = :orderExternalId 
+                LIMIT 1
+            ];
+            if(order == null){
+                throw new NotFoundException('Order not found with ExternalId: ' + orderExternalId + '.');
+            }else{
+                ReceivedOrderLog__c receivedOrderLog = new ReceivedOrderLog__c();
+                receivedOrderLog.Application__c = 'API clients';
+                receivedOrderLog.LogUserId__c = UserInfo.getUserId();
+                receivedOrderLog.Operation__c = 'REST DELETE';
+                receivedOrderLog.Request__c = 'API';
+                receivedOrderLog.StartTime__c = datetime.now();
+                receivedOrderLog.Status__c = 'Success';
+                receivedOrderLog.Order__c = order.Id;
+
+                order.DeleteFromERP__c = true;
+                update order;
+                response.statusCode = 204;
+                insert receivedOrderLog;
+            }
+        }catch(Exception e){
+            response.statusCode = 404;
+        }
+    }
 }
+
