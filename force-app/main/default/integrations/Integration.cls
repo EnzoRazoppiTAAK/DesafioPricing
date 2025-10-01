@@ -1,7 +1,7 @@
-@RestResource(urlMapping='/upsertOrder/*')
+@RestResource(urlMapping='/Order/*')
 global with sharing class Integration {
 
-    global class receivedOrderItemsFromTOTVS {
+    /*global class receivedOrderItemsFromTOTVS {
         public String productCode;
         public String orderitemCode;
         public Boolean totvsItem;
@@ -20,8 +20,8 @@ global with sharing class Integration {
         public String freightType;
         public String distributionCenter;
         public String orderNumber;
-        public String deliveryDate;
-        public String deliveryDateERP;
+        public Date deliveryDate;
+        public Date deliveryDateERP;
         public String status;
         public String obs;
         public Integer priority;
@@ -137,11 +137,6 @@ global with sharing class Integration {
             productsMap.put(iProduct.ExternalId__c, iProduct);
             productsIds.add(iProduct.Id);
         }
-        List<PricebookEntry> pricebookEntryList = new List<PricebookEntry>([
-            SELECT Id, Product2Id
-            FROM PricebookEntry
-            WHERE Product2Id IN :productsIds
-        ]);
 
         Savepoint sp = Database.setSavepoint();
 
@@ -152,31 +147,26 @@ global with sharing class Integration {
                 count++;
                 Order order = new Order();
                 if(iReceivedOrderFromTOTVS.clienteCode == null || !accountsMap.containsKey(iReceivedOrderFromTOTVS.clienteCode)){
-                    response.statusCode = 400;
                     throw new NotFoundException('Client not found with code: ' + iReceivedOrderFromTOTVS.clienteCode + 'in order '+ count + '.');
                 }else{
                     order.AccountId = accountsMap.get(iReceivedOrderFromTOTVS.clienteCode).Id;
                 }
                 if(iReceivedOrderFromTOTVS.addressCode == null || !accountAddressesMap.containsKey(iReceivedOrderFromTOTVS.addressCode)){
-                    response.statusCode = 400;
                     throw new NotFoundException('Address not found with code: ' + iReceivedOrderFromTOTVS.addressCode + 'in order '+ count + '.');
                 }else{
                     order.AccountAddress__c = accountAddressesMap.get(iReceivedOrderFromTOTVS.addressCode).Id;
                 }
                 if(iReceivedOrderFromTOTVS.conditionCode == null || !PaymentConditionMap.containsKey(iReceivedOrderFromTOTVS.conditionCode)){
-                    response.statusCode = 400;
                     throw new NotFoundException('Payment condition not found with code: ' + iReceivedOrderFromTOTVS.conditionCode + 'in order '+ count + '.');
                 }else{
                     order.PaymentCondition__c = PaymentConditionMap.get(iReceivedOrderFromTOTVS.conditionCode).Id;
                 }
                 if(iReceivedOrderFromTOTVS.distributionCenter == null || !distributionCenterMap.containsKey(iReceivedOrderFromTOTVS.distributionCenter)){
-                    response.statusCode = 400;
                     throw new NotFoundException('Distribution center not found with code: ' + iReceivedOrderFromTOTVS.distributionCenter + 'in order '+ count + '.');
                 }else{
                     order.DistributionCenter__c = distributionCenterMap.get(iReceivedOrderFromTOTVS.distributionCenter).Id;
                 }
                 if(iReceivedOrderFromTOTVS.orderNumber == null){
-                    response.statusCode = 400;
                     throw new NotFoundException('Order not found with code: ' + iReceivedOrderFromTOTVS.orderNumber + 'in order '+ count + '.');
                 }else{
                     order.ExternalId__c = iReceivedOrderFromTOTVS.orderNumber;
@@ -184,8 +174,8 @@ global with sharing class Integration {
 
                 order.EffectiveDate = iReceivedOrderFromTOTVS.effectiveDate;
                 order.FreightType__c = iReceivedOrderFromTOTVS.freightType;
-                order.deliveryDate__c = date.valueOf(iReceivedOrderFromTOTVS.deliveryDate);
-                order.deliveryDateERP__c = date.valueOf(iReceivedOrderFromTOTVS.deliveryDateERP);
+                order.deliveryDate__c = iReceivedOrderFromTOTVS.deliveryDate;
+                order.deliveryDateERP__c = iReceivedOrderFromTOTVS.deliveryDateERP;
                 order.Status = iReceivedOrderFromTOTVS.status;
                 order.Observation__c = iReceivedOrderFromTOTVS.obs;
                 order.Priority__c = iReceivedOrderFromTOTVS.priority;
@@ -307,6 +297,6 @@ global with sharing class Integration {
         }catch(Exception e){
             response.statusCode = 404;
         }
-    }
+    }*/
 }
 
