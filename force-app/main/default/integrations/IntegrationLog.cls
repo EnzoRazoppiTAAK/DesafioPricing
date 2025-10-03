@@ -14,7 +14,7 @@ public with sharing class IntegrationLog {
 		if (recordTypeId == null) System.debug('Falha ao pegar o recordTypeId do log de integração => ' + recordTypeId);
 
 		IntegrationLog__c log = createIntegrationLogRecord(
-			integrationName, externalIdList, recordTypeId, recordTypeName, attachmentIN, attachmentOUT, payloadIN, payloadOUT,
+			integrationName, externalIdList, recordTypeName, attachmentIN, attachmentOUT, payloadIN, payloadOUT,
 			endpoint, hasAnyErrors, datetimeNow, hasDeleted
 		);
 
@@ -34,14 +34,13 @@ public with sharing class IntegrationLog {
 		return log.Id;
 	}
 
-	public static IntegrationLog__c createIntegrationLogRecord(String integrationName, String externalIdList, Id recordTypeId,
+	public static IntegrationLog__c createIntegrationLogRecord(String integrationName, String externalIdList,
 									String recordTypeName, Boolean attachmentIN, Boolean attachmentOUT, String payloadIN,
 									String payloadOUT, String endpoint, Boolean hasAnyErrors, Datetime datetimeNow, Boolean hasDeleted) {
 		return new IntegrationLog__c(
 			Name = integrationName + ' ' + recordTypeName,
 			Endpoint__c = endpoint,
 			ExternalIdList__c = externalIdList.length() > 255 ? externalIdList.substring(0, 256) : externalIdList,
-			RecordTypeId = recordTypeId,
 			Attachment__c = (attachmentIN || attachmentOUT),
 			PayloadIN__c = (attachmentIN  ? '' : payloadIN),
 			PayloadOUT__c = (attachmentOUT ? '' : payloadOUT),

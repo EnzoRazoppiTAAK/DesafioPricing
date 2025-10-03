@@ -95,26 +95,26 @@ public with sharing class IntegrationUtils {
     
     // CALLOUT STANDARD RESPONSE OUTTER CLASS
     public class CalloutResponse{
-		public CalloutResponseParsedData parsedResponse;
+		public CalloutOrder.ResponseParameters responseParameters;
 		public Boolean success;
 		public String errorMessage;
 
-		public CalloutResponse(CalloutResponseParsedData response){
+		public CalloutResponse(CalloutOrder.ResponseParameters response){
 			this.success = true;
 			this.errorMessage = '';
-			this.parsedResponse = response;
+			this.responseParameters = responseParameters;
 		}
 
 		public CalloutResponse(String errorMessage){
 			this.success = false;
 			this.errorMessage = errorMessage;
-			this.parsedResponse = null;
+			this.responseParameters = null;
 		}
 
-        public CalloutResponse(String errorMessage, CalloutResponseParsedData response){
+        public CalloutResponse(String errorMessage, CalloutOrder.ResponseParameters response){
 			this.success = false;
 			this.errorMessage = errorMessage;
-			this.parsedResponse = response;
+			this.responseParameters = response;
 		}
 	}
     // CALLOUT PARSING INNER INTERFACE
@@ -126,6 +126,7 @@ public with sharing class IntegrationUtils {
         // Timeout reduced in 10000 miliseconds in order to avoid timeouts in invoke actions through javascript.
         request.setTimeout(110000);
         request.setEndpoint(namedCredential);
+		System.debug('EXECUTING THIS PAYLOADOUT: '+payload);
         request.setBody(payload);
 
         
@@ -145,6 +146,8 @@ public with sharing class IntegrationUtils {
 
         HttpResponse response;
         try {
+		
+			System.debug('REQUEST ORDER VAI ESTAR AQUI' + request.getBody());
             response = (new Http()).send(request);
 
             if (SYSTEM_DEBUG_ENABLED){
