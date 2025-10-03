@@ -102,7 +102,7 @@ public with sharing class IntegrationUtils {
 		public CalloutResponse(CalloutOrder.ResponseParameters response){
 			this.success = true;
 			this.errorMessage = '';
-			this.responseParameters = responseParameters;
+			this.responseParameters = response;
 		}
 
 		public CalloutResponse(String errorMessage){
@@ -126,7 +126,6 @@ public with sharing class IntegrationUtils {
         // Timeout reduced in 10000 miliseconds in order to avoid timeouts in invoke actions through javascript.
         request.setTimeout(110000);
         request.setEndpoint(namedCredential);
-		System.debug('EXECUTING THIS PAYLOADOUT: '+payload);
         request.setBody(payload);
 
         
@@ -147,7 +146,6 @@ public with sharing class IntegrationUtils {
         HttpResponse response;
         try {
 		
-			System.debug('REQUEST ORDER VAI ESTAR AQUI' + request.getBody());
             response = (new Http()).send(request);
 
             if (SYSTEM_DEBUG_ENABLED){

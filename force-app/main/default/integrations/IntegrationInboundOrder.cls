@@ -29,9 +29,9 @@ global with sharing class IntegrationInboundOrder {
 
 		String endpoint = System.Url.getOrgDomainUrl().toExternalForm() + '/services/apexrest/upsertOrder/*';
 		String integrationLogId = IntegrationLog.createLog(
-			'Order', orderExternalIds, 'Inbound', JSON.serialize(orderRequestList), JSON.serialize(orderResponseList), endpoint, hasError, hasDeleted
+			'Order', orderExternalIds, 'INBOUND', JSON.serialize(orderRequestList), JSON.serialize(orderResponseList), endpoint, hasError, hasDeleted
 		);
-		if (integrationLogId != null) updateOrderWithIntegrationLogId(orderToUpsertList, integrationLogId, 'IN');
+		if (integrationLogId != null) IntegrationLog.updateOrderWithIntegrationLogId(orderToUpsertList, integrationLogId, 'IN');
 
 		System.debug('orderResponseList => ' + orderResponseList);
 		RestResponse response = RestContext.response;
@@ -143,18 +143,5 @@ global with sharing class IntegrationInboundOrder {
 		}
 
 		return hasError;
-	}
-
-	public static void updateOrderWithIntegrationLogId(List<Order> orderList, String integrationLogId, String integrationType) {
-		List<Order> orderUpdateList = new List<Order>();
-
-		for (Order order : [SELECT Id, ReceivedOrderLog__c, SentOrderLog__c FROM Order WHERE Id IN: orderList]) {
-			if (integrationType == 'IN') order.ReceivedOrderLog__c = integrationLogId;
-			else order.SentOrderLog__c = integrationLogId;
-
-			orderUpdateList.add(order);
-		}
-
-		if (!orderUpdateList.isEmpty()) update orderUpdateList;
 	}
 }

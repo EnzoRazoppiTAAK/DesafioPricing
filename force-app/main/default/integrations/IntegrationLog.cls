@@ -63,4 +63,17 @@ public with sharing class IntegrationLog {
 
 		return attachment.Id;
 	}
+
+	public static void updateOrderWithIntegrationLogId(List<Order> orderList, String integrationLogId, String integrationType) {
+		List<Order> orderUpdateList = new List<Order>();
+
+		for (Order order : [SELECT Id, ReceivedOrderLog__c, SentOrderLog__c FROM Order WHERE Id IN: orderList]) {
+			if (integrationType == 'IN') order.ReceivedOrderLog__c = integrationLogId;
+			else order.SentOrderLog__c = integrationLogId;
+
+			orderUpdateList.add(order);
+		}
+
+		if (!orderUpdateList.isEmpty()) update orderUpdateList;
+	}
 }

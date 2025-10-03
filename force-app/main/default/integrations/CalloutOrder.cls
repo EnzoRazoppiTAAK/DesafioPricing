@@ -4,49 +4,15 @@ public with sharing class CalloutOrder {
 	public static IntegrationUtils.CalloutResponse processIntegration(String orderCode){
 
 		Order parentOrder = [SELECT ExternalId__c, Account.ExternalId__c, AccountAddress__r.ExternalId__c, PaymentCondition__r.ExternalId__c, 
-		EffectiveDate, FreightType__c, DistributionCenter__r.ExternalId__c, 
-		deliveryDate__c, Status, Observation__c, 
+		EffectiveDate, FreightType__c, DistributionCenter__r.ExternalId__c, deliveryDate__c, Status, Observation__c, 
 		(SELECT ExternalId__c, Product2.ExternalId__c, TotvsItem__c, UnitPrice, ListPrice, Quantity FROM OrderItems) 
 		FROM Order 
 		WHERE ExternalId__c = :orderCode
 		];
-		System.debug('parentOrder => ' + parentOrder);
 		
 		List<Order> allOrders = new List<Order>{parentOrder};
 		
 		IntegrationUtils.CalloutResponse calloutResponse = sendOrder(allOrders);
-
-		if (calloutResponse.success) {
-			
-			ResponseParameters resp = calloutResponse.responseParameters;
-			
-			Map<String, Order> orderMap = new Map<String, Order>();
-
-			for (Order ord : allOrders) {
-				orderMap.put(ord.ExternalId__c, ord);
-			}
-
-			List<Order> orderList = new List<Order>();
-
-			/*for (ResponseParametersWrapper respWrapper : resp.responses) {
-				if (orderMap.containsKey(respWrapper.SalesforceCode)) {
-
-					Order ord = orderMap.get(respWrapper.SalesforceCode);
-
-					if (respWrapper.error == 'TRUE') {
-						//Error Treatments
-					} else {
-						//Success Treatments
-					}
-					
-					orderList.add(ord);
-				}
-			}
-
-			if (!orderList.isEmpty()) {
-				update orderList;
-			}*/
-		}
 		
 		return calloutResponse;
 	}
@@ -102,13 +68,13 @@ public with sharing class CalloutOrder {
 
 		if (responseObject.success) {
 
-			HttpResponse response = responseObject.response;
+			HttpResponse httpResponse = responseObject.response;
 
-			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', response.getBody(), payloadOUT, endpoint, false, false);
-			IntegrationInboundOrder.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
+			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', httpResponse.getBody(), payloadOUT, endpoint, false, false);
+			IntegrationLog.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
 			try {
 
-				List<ResponseParametersWrapper> responses = (List<ResponseParametersWrapper>) JSON.deserialize(response.getBody(), List<ResponseParametersWrapper>.class);
+				List<ResponseParametersWrapper> responses = (List<ResponseParametersWrapper>) JSON.deserialize(httpResponse.getBody(), List<ResponseParametersWrapper>.class);
 				return new IntegrationUtils.CalloutResponse(new ResponseParameters(responses));
 			} catch (Exception e) {
 				
@@ -118,7 +84,7 @@ public with sharing class CalloutOrder {
 			}
 		} else {
 			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', responseObject.exceptionObject.getMessage(), payloadOUT, endpoint, true, false);
-			IntegrationInboundOrder.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
+			IntegrationLog.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
 			return new IntegrationUtils.CalloutResponse(responseObject.exceptionObject.getMessage());
 		}
 	}
@@ -142,7 +108,6 @@ public with sharing class CalloutOrder {
 
 		public RequestParameters(Order order) {
 
-			System.debug('accountCode => ' + order.Account.ExternalId__c);
 			this.orderCode = order.ExternalId__c;
 			this.accountCode = order.Account.ExternalId__c;
 			this.addressCode = order.AccountAddress__r.ExternalId__c;
@@ -200,6 +165,7 @@ public with sharing class CalloutOrder {
 	}
 
 	public class requestListOfOrders {
+		//JSON enviado é uma lista com o nome request
 		List<RequestParameters> request;
 
 		public requestListOfOrders(List<RequestParameters> orders) {
