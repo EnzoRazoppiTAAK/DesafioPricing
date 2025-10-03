@@ -16,6 +16,14 @@ global with sharing class IntegrationInboundOrder {
 		// Converting template to object list and validating required fields
 		orderExternalIds = FactoryDataIntegration.convertSObject(new Order(), 'IN', orderRequestList, orderResponseList, orderToUpsertList);
 		// Upserting records (Order)
+		List<Order> ordersWithStatusActiveted = new List<Order>();
+		for(Order iOrder : orderToUpsertList) {
+			if(iOrder.Status == 'Activated') {
+				ordersWithStatusActiveted.add(iOrder);
+				iOrder.Status = 'Draft';
+			}
+		}
+
 		hasError = IntegrationUtils.upsertRecords(
 			Database.upsert(orderToUpsertList, Order.ExternalId__c, false), orderResponseList, orderToUpsertList, Order.ExternalId__c
 		);
@@ -27,11 +35,18 @@ global with sharing class IntegrationInboundOrder {
 		// Fill response list with items
 		if (!orderItemResponseList.isEmpty()) hasError = fillResponseList(orderResponseList, orderItemResponseList);
 
+		for(Order iOrder : ordersWithStatusActiveted) {
+			iOrder.Status = 'Activated';
+		}
+
+
 		String endpoint = System.Url.getOrgDomainUrl().toExternalForm() + '/services/apexrest/upsertOrder/*';
 		String integrationLogId = IntegrationLog.createLog(
 			'Order', orderExternalIds, 'INBOUND', JSON.serialize(orderRequestList), JSON.serialize(orderResponseList), endpoint, hasError, hasDeleted
 		);
 		if (integrationLogId != null) IntegrationLog.updateOrderWithIntegrationLogId(orderToUpsertList, integrationLogId, 'IN');
+
+		Database.upsert(ordersWithStatusActiveted, Order.ExternalId__c, false);
 
 		System.debug('orderResponseList => ' + orderResponseList);
 		RestResponse response = RestContext.response;

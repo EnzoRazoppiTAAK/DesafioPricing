@@ -1,9 +1,13 @@
 public with sharing class OrderTriggerHelper {
-    public static void handleUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
+    public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         updateAfterActivate(newRecordList, oldRecordMap);
         isERPItem(newRecordList);
+        verifyActivatedOrders(newRecordList, oldRecordMap);
     }
+    public static void handleAfterUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
+    }
+    
     public static void cannotUpdateTheOrderAccount(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         for(Order iOrder: newRecordList){
             if(iOrder.AccountId != oldRecordMap.get(iOrder.Id).AccountId){
@@ -28,5 +32,23 @@ public with sharing class OrderTriggerHelper {
                 }
             }
         }
+    }
+
+    public static void verifyActivatedOrders(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
+        Set<Id> ordersIdsToCallout = new Set<Id>();
+        for(Order iOrder: newRecordList){
+            if(iOrder.Status == 'Activated' && oldRecordMap.get(iOrder.Id).Status == 'Draft'){
+                ordersIdsToCallout.add(iOrder.Id);
+            }
+        }
+        if(!ordersIdsToCallout.isEmpty()){
+            calloutOrders(ordersIdsToCallout);
+        }
+    }
+
+    @Future(callout=true)
+    public static void calloutOrders(Set<Id> OrdersIds){
+        System.debug('calloutOrders'+ OrdersIds);
+        CalloutOrder.processIntegration(OrdersIds);
     }
 }

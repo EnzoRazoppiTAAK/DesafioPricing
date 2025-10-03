@@ -1,4 +1,4 @@
-trigger OrderTrigger on Order (before update) {
+trigger OrderTrigger on Order (before update, after update) {
     System.debug('Tax__c Trigger Start => ' + Trigger.operationType);
 	OrderTriggerHandler handler = new OrderTriggerHandler(
 		Trigger.old,
@@ -11,6 +11,9 @@ trigger OrderTrigger on Order (before update) {
 		switch on Trigger.operationType {
 			when BEFORE_UPDATE {
 				handler.beforeUpdate();
+			}
+            when AFTER_UPDATE {
+				handler.afterUpdate();
 			}
 		}
     }

@@ -1,16 +1,17 @@
 public with sharing class CalloutOrder {
 	
 
-	public static IntegrationUtils.CalloutResponse processIntegration(String orderCode){
+	public static IntegrationUtils.CalloutResponse processIntegration(Set<Id> ordersIds){
 
-		Order parentOrder = [SELECT ExternalId__c, Account.ExternalId__c, AccountAddress__r.ExternalId__c, PaymentCondition__r.ExternalId__c, 
+		List<Order> parentOrders = [SELECT Id, ExternalId__c, Account.ExternalId__c, AccountAddress__r.ExternalId__c, PaymentCondition__r.ExternalId__c, 
 		EffectiveDate, FreightType__c, DistributionCenter__r.ExternalId__c, deliveryDate__c, Status, Observation__c, 
 		(SELECT ExternalId__c, Product2.ExternalId__c, TotvsItem__c, UnitPrice, ListPrice, Quantity FROM OrderItems) 
 		FROM Order 
-		WHERE ExternalId__c = :orderCode
+		WHERE Id IN: ordersIds
 		];
 		
-		List<Order> allOrders = new List<Order>{parentOrder};
+		List<Order> allOrders = new List<Order>();
+		allOrders.addAll(parentOrders);
 		
 		IntegrationUtils.CalloutResponse calloutResponse = sendOrder(allOrders);
 		
@@ -65,13 +66,17 @@ public with sharing class CalloutOrder {
 		
 		IntegrationUtils.RequestResponseObject responseObject = IntegrationUtils.executeCallout(endpoint, payloadOUT, headersMap);
 
+		System.debug('responseObject: ' + responseObject);
+
 
 		if (responseObject.success) {
 
 			HttpResponse httpResponse = responseObject.response;
 
+			OrderTriggerHandler.disableTrigger();
 			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', httpResponse.getBody(), payloadOUT, endpoint, false, false);
 			IntegrationLog.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
+			OrderTriggerHandler.enableTrigger();
 			try {
 
 				List<ResponseParametersWrapper> responses = (List<ResponseParametersWrapper>) JSON.deserialize(httpResponse.getBody(), List<ResponseParametersWrapper>.class);
@@ -83,8 +88,10 @@ public with sharing class CalloutOrder {
 				return new IntegrationUtils.CalloutResponse(defaultErrorMessage);
 			}
 		} else {
+			OrderTriggerHandler.disableTrigger();
 			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', responseObject.exceptionObject.getMessage(), payloadOUT, endpoint, true, false);
 			IntegrationLog.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
+			OrderTriggerHandler.enableTrigger();
 			return new IntegrationUtils.CalloutResponse(responseObject.exceptionObject.getMessage());
 		}
 	}
