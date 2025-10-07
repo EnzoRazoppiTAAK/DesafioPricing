@@ -7,7 +7,8 @@ global with sharing class IntegrationInboundSemTemplate {
         List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
         List<OrderItemData> orderItemDataList= new List<OrderItemData>();
         Map<String, String> externalIdsOrderItemToOrder = new  Map<String, String>();
-        Map<String, ResponseOrder> orderResponseMap = new Map<String, ResponseOrder>();
+        Map<String, Response> orderResponseMap = new Map<String, Response>();
+        List<Response> responseList = new List<Response>();
         Boolean hasError = false;
         String orderExternalIds = '';
 
@@ -52,17 +53,21 @@ global with sharing class IntegrationInboundSemTemplate {
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];
 			Database.UpsertResult upsertOrderResult = upsertOrders[i];
+
+            Response responseOrder;
         
             if(upsertOrderResult.isSuccess()){
-                orderResponseMap.put(order.ExternalId__c, new ResponseOrder(upsertOrderResult.getId(), order.ExternalId__c, true, null, 'Order', new List<Response>()));
+                responseOrder = new Response(upsertOrderResult.getId(), order.ExternalId__c, false, null, 'Order');
             }else{
                 String error = '';
                 for(Database.Error iError : upsertOrderResult.getErrors()){
                     error += iError.getMessage() + ' ';
                     hasError = true;
                 }
-                orderResponseMap.put(order.ExternalId__c, new ResponseOrder(null, order.ExternalId__c, false, error, 'Order', new List<Response>()));
+                responseOrder = new Response(null, order.ExternalId__c, true, error, 'Order');
             }
+            orderResponseMap.put(order.ExternalId__c, responseOrder);
+            responseList.add(responseOrder);
         }
 
         List<OrderItem> orderItemsInDatabase = new List<OrderItem>([
@@ -94,16 +99,16 @@ global with sharing class IntegrationInboundSemTemplate {
             Response responseOrderItem;
 
             if(upsertOrderResult.isSuccess()){
-                responseOrderItem = new Response(upsertOrderResult.getId(), orderItem.ExternalId__c, true, null, 'OrderItem');
+                responseOrderItem = new Response(upsertOrderResult.getId(), orderItem.ExternalId__c, false, null, 'OrderItem');
             }else{
                 String error = '';
                 for(Database.Error iError : upsertOrderResult.getErrors()){
                     error += iError.getMessage() + ' ';
                     hasError = true;
                 }
-                responseOrderItem = new Response(null, orderItem.ExternalId__c, false, error, 'OrderItem');
+                responseOrderItem = new Response(null, orderItem.ExternalId__c, true, error, 'OrderItem');
             }
-            orderResponseMap.get(externalIdsOrderItemToOrder.get(orderItem.ExternalId__c)).responseOrderItem.add(responseOrderItem);
+            responseList.add(responseOrderItem);
         }
 
         for(Order iOrder : ordersWithStatusActiveted) {
@@ -111,7 +116,6 @@ global with sharing class IntegrationInboundSemTemplate {
 		}
         OrderTriggerHandler.disableTrigger();
         Database.upsert(ordersWithStatusActiveted, Order.ExternalId__c, false);
-        OrderTriggerHandler.enableTrigger();
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];
@@ -123,18 +127,20 @@ global with sharing class IntegrationInboundSemTemplate {
                     error += iError.getMessage() + ' ';
                     hasError = true;
                 }
-                orderResponseMap.get(order.ExternalId__c).status = false;
+                orderResponseMap.get(order.ExternalId__c).hasError = false;
                 orderResponseMap.get(order.ExternalId__c).errorMessage = error;
             }
         }
-
-        ResponseInboundOrders responseInboundOrders = new ResponseInboundOrders(orderResponseMap.values());
+        
+        ResponseInboundOrders responseInboundOrders = new ResponseInboundOrders(responseList);
 
         String endpoint = 'https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder';
 
         String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'INBOUND', JSON.serialize(request), 
         JSON.serialize(responseInboundOrders), endpoint, hasError, deletedOrderItem(orderItemsToUpsertList));
         IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
+        
+        OrderTriggerHandler.enableTrigger();
                 
         RestResponse response = RestContext.response;
 		response.statusCode = 201;
@@ -199,31 +205,23 @@ global with sharing class IntegrationInboundSemTemplate {
     global virtual class Response{
         public String salesforceId;
         public String externalCode;
-        public Boolean status;
+        public Boolean hasError;
         public String errorMessage;
         public String sobjectType;
 
-        public Response(String salesforceId, String externalCode, Boolean status, String errorMessage, String sobjectType){
+        public Response(String salesforceId, String externalCode, Boolean hasError, String errorMessage, String sobjectType){
             this.salesforceId = salesforceId;
             this.externalCode = externalCode;
-            this.status = status;
+            this.hasError = hasError;
             this.errorMessage = errorMessage;
             this.sobjectType = sobjectType;
         }
     }
 
-    global class ResponseOrder extends Response {
-        List<Response> responseOrderItem;
-
-        public ResponseOrder(String salesforceId, String externalCode, Boolean status, String errorMessage, String sobjectType, List<Response> responseOrderItem){
-            super(salesforceId, externalCode, status, errorMessage, sobjectType);
-            this.responseOrderItem = responseOrderItem;
-        }
-    }
     global class ResponseInboundOrders{
-        public List<ResponseOrder> response;
+        public List<Response> response;
 
-        public ResponseInboundOrders(List<ResponseOrder> response){
+        public ResponseInboundOrders(List<Response> response){
             this.response = response;
         }
     }

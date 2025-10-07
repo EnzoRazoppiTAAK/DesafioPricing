@@ -1,7 +1,7 @@
 public with sharing class OrderTriggerHelper {
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
-        updateAfterActivate(newRecordList, oldRecordMap);
+        //updateAfterActivate(newRecordList, oldRecordMap);
         isERPItem(newRecordList);
         verifyActivatedOrders(newRecordList, oldRecordMap);
     }
@@ -42,13 +42,13 @@ public with sharing class OrderTriggerHelper {
             }
         }
         if(!ordersIdsToCallout.isEmpty()){
-            calloutOrders(ordersIdsToCallout);
+            executeCallout(ordersIdsToCallout);
         }
     }
 
-    @Future(callout=true)
-    public static void calloutOrders(Set<Id> OrdersIds){
+    @Future(callout=true) //vai rodar em outro contexto(Assincrono) e nao pode ser chamado na trigger diretamente 
+    public static void executeCallout(Set<Id> OrdersIds){
         System.debug('calloutOrders'+ OrdersIds);
-        CalloutOrder.processIntegration(OrdersIds);
+        CalloutOrderSemTemplate.calloutOrders(OrdersIds);
     }
 }
