@@ -1,14 +1,14 @@
 public with sharing class OrderItemTriggerHelper {
     public static void handleInsertOrderItem(List<OrderItem> newRecordList){
-        joinDuplicates(newRecordList);
         calculateParametersInOrderItem(newRecordList);
         calculateFinalPrice(newRecordList);
+        joinDuplicates(newRecordList);
     }
     public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
-        joinDuplicates(newRecordList);
         calculateParametersInOrderItem(newRecordList);
         calculateFinalPrice(newRecordList);
         isERPItem(newRecordList);
+        joinDuplicates(newRecordList);
     }
     public static void calculateParametersInOrderItem(List<OrderItem> newRecordList){
         Map<Id, List<OrderItem>> newOrderItemMap = new Map<Id, List<OrderItem>>();
@@ -292,8 +292,10 @@ public with sharing class OrderItemTriggerHelper {
             String orderItemKey = iOrderItem.OrderId+'-'+iOrderItem.Product2Id+'-'+iOrderItem.UnitPrice;
             if(newOrderItemMap.containsKey(orderItemKey)){
                 if(newOrderItemMap.get(orderItemKey).Id != iOrderItem.Id){
-                    listToDelete.add(iOrderItem);
-                    newOrderItemMap.get(orderItemKey).Quantity += iOrderItem.Quantity;
+                    if(!newOrderItemMap.get(orderItemKey).hasErrors()){
+                        listToDelete.add(iOrderItem);
+                        newOrderItemMap.get(orderItemKey).Quantity += iOrderItem.Quantity;
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-@RestResource(urlMapping='/upsertOrder/*')
+@RestResource(urlMapping='/Orders/*')
 global with sharing class IntegrationInboundOrder {
 	@HttpPost
 	global static List<DataIntegrationFields.Response> upsertOrder(List<DataIntegrationFields.OrderINData> request) {
@@ -35,9 +35,6 @@ global with sharing class IntegrationInboundOrder {
 		// Fill response list with items
 		if (!orderItemResponseList.isEmpty()) hasError = fillResponseList(orderResponseList, orderItemResponseList);
 
-		for(Order iOrder : ordersWithStatusActiveted) {
-			iOrder.Status = 'Activated';
-		}
 
 
 		String endpoint = System.Url.getOrgDomainUrl().toExternalForm() + '/services/apexrest/upsertOrder/*';

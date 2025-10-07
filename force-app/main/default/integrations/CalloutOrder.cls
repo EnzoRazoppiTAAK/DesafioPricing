@@ -68,12 +68,11 @@ public with sharing class CalloutOrder {
 
 		System.debug('responseObject: ' + responseObject);
 
-
+		OrderTriggerHandler.disableTrigger();
 		if (responseObject.success) {
 
 			HttpResponse httpResponse = responseObject.response;
 
-			OrderTriggerHandler.disableTrigger();
 			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', httpResponse.getBody(), payloadOUT, endpoint, false, false);
 			IntegrationLog.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
 			OrderTriggerHandler.enableTrigger();
@@ -88,7 +87,6 @@ public with sharing class CalloutOrder {
 				return new IntegrationUtils.CalloutResponse(defaultErrorMessage);
 			}
 		} else {
-			OrderTriggerHandler.disableTrigger();
 			String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', responseObject.exceptionObject.getMessage(), payloadOUT, endpoint, true, false);
 			IntegrationLog.updateOrderWithIntegrationLogId(orders, integrationLogId, 'OUT');
 			OrderTriggerHandler.enableTrigger();
