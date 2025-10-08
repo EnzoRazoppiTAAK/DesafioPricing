@@ -114,7 +114,6 @@ global with sharing class IntegrationInboundSemTemplate {
         for(Order iOrder : ordersWithStatusActiveted) {
 			iOrder.Status = 'Activated';
 		}
-        OrderTriggerHandler.disableTrigger();
         Database.upsert(ordersWithStatusActiveted, Order.ExternalId__c, false);
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
@@ -136,6 +135,7 @@ global with sharing class IntegrationInboundSemTemplate {
 
         String endpoint = 'https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder';
 
+        OrderTriggerHandler.disableTrigger();
         String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'INBOUND', JSON.serialize(request), 
         JSON.serialize(responseInboundOrders), endpoint, hasError, deletedOrderItem(orderItemsToUpsertList));
         IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
