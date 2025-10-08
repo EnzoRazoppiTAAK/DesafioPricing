@@ -10,6 +10,7 @@ global with sharing class IntegrationInboundSemTemplate {
         Map<String, Response> orderResponseMap = new Map<String, Response>();
         List<Response> responseList = new List<Response>();
         Boolean hasError = false;
+        Boolean hasDeleted;
         String orderExternalIds = '';
 
         for(OrderData iOrderData : request){
@@ -41,9 +42,9 @@ global with sharing class IntegrationInboundSemTemplate {
 
         List<Order> ordersWithStatusActiveted = new List<Order>();
 		for(Order iOrder : ordersToUpsertList) {
-			if(iOrder.Status == 'Activated') {
+			if(iOrder.Status == 'Aprovado') {
 				ordersWithStatusActiveted.add(iOrder);
-				iOrder.Status = 'Draft';
+				iOrder.Status = 'Novo';
 			}
 		}
 
@@ -94,15 +95,15 @@ global with sharing class IntegrationInboundSemTemplate {
         
        for (Integer i = 0; i < upsertOrderItems.size(); i++){
             OrderItem orderItem = orderItemsToUpsertList[i];
-			Database.UpsertResult upsertOrderResult = upsertOrderItems[i];
+			Database.UpsertResult upsertOrderItemResult = upsertOrderItems[i];
 
             Response responseOrderItem;
 
-            if(upsertOrderResult.isSuccess()){
-                responseOrderItem = new Response(upsertOrderResult.getId(), orderItem.ExternalId__c, false, null, 'OrderItem');
+            if(upsertOrderItemResult.isSuccess()){
+                responseOrderItem = new Response(upsertOrderItemResult.getId(), orderItem.ExternalId__c, false, null, 'OrderItem');
             }else{
                 String error = '';
-                for(Database.Error iError : upsertOrderResult.getErrors()){
+                for(Database.Error iError : upsertOrderItemResult.getErrors()){
                     error += iError.getMessage() + ' ';
                     hasError = true;
                 }
@@ -111,8 +112,10 @@ global with sharing class IntegrationInboundSemTemplate {
             responseList.add(responseOrderItem);
         }
 
+        hasDeleted = deleteOrderItemNotReceived(ordersToUpsertList, orderItemsToUpsertList);
+
         for(Order iOrder : ordersWithStatusActiveted) {
-			iOrder.Status = 'Activated';
+			iOrder.Status = 'Aprovado';
 		}
         Database.upsert(ordersWithStatusActiveted, Order.ExternalId__c, false);
 
@@ -137,7 +140,7 @@ global with sharing class IntegrationInboundSemTemplate {
 
         OrderTriggerHandler.disableTrigger();
         String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'INBOUND', JSON.serialize(request), 
-        JSON.serialize(responseInboundOrders), endpoint, hasError, deletedOrderItem(orderItemsToUpsertList));
+        JSON.serialize(responseInboundOrders), endpoint, hasError, hasDeleted);
         IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
@@ -148,30 +151,29 @@ global with sharing class IntegrationInboundSemTemplate {
         return responseInboundOrders;
     }
 
-    public static Boolean deletedOrderItem(List<OrderItem> orderItemsToUpsertList){
-        Set<String> orderExternalIds = new Set<String>();
-        Set<String> orderItemExternalIds = new Set<String>();
+    public static Boolean deleteOrderItemNotReceived(List<Order> ordersToUpsertList, List<OrderItem> orderItemsToUpsertList){
+        Set<Id> orderIds = new Set<Id>();
+        Set<Id> orderItemIds = new Set<Id>();
         List<OrderItem> orderItemsToUpdate = new List<OrderItem>();
 
-        for(OrderItem orderItem : orderItemsToUpsertList){
-            orderItemExternalIds.add(orderItem.ExternalId__c);
-            orderExternalIds.add(orderItem.OrderId);
+        for(OrderItem iOrderItem : orderItemsToUpsertList){
+            orderItemIds.add(iOrderItem.Id);
+        }
+        for(Order iOrder : ordersToUpsertList){
+            orderIds.add(iOrder.Id);
         }
 
         List<OrderItem> orderItemsToDelete = [
-            SELECT Id, ExternalId__c, DeletedProduct__c
+            SELECT Id, ExternalId__c
             FROM OrderItem 
-            WHERE ExternalId__c NOT IN :orderItemExternalIds 
-            AND Order.ExternalId__c IN :orderExternalIds
-            AND DeletedProduct__c = false
+            WHERE Id NOT IN :orderItemIds 
+            AND OrderId IN :orderIds
         ];
+        
+        System.debug('OrderItems To Delete: ' + orderItemsToDelete);
 
-        if(orderItemsToDelete.size() > 0){
-            for(OrderItem orderItem : orderItemsToDelete){
-                orderItem.DeletedProduct__c = true;
-                orderItemsToUpdate.add(orderItem);
-            } 
-            update orderItemsToUpdate;
+        if(orderItemsToDelete.size() > 0){ 
+            delete orderItemsToDelete;
             return true;
         }else{
             return false;

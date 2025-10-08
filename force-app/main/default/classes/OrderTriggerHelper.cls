@@ -35,18 +35,13 @@ public with sharing class OrderTriggerHelper {
     }
 
     public static void verifyActivatedOrders(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
-        System.debug('VERIFICANDO');
         Set<Id> ordersIdsToCallout = new Set<Id>();
         for(Order iOrder: newRecordList){
-            System.debug('orders: '+ iOrder.Status+ ' '+ oldRecordMap.get(iOrder.Id).Status);
             if(iOrder.Status == 'Activated' && oldRecordMap.get(iOrder.Id).Status == 'Draft'){
-                System.debug('???????'+ iOrder.Id);
                 ordersIdsToCallout.add(iOrder.Id);
             }
         }
-        System.debug('ordersIdsToCallout'+ ordersIdsToCallout);
         if(!ordersIdsToCallout.isEmpty()){
-            System.debug('calloutOrders'+ ordersIdsToCallout);
             executeCallout(ordersIdsToCallout);
         }
     }
@@ -54,7 +49,10 @@ public with sharing class OrderTriggerHelper {
     @Future(callout=true) //vai rodar em outro contexto(Assincrono) e nao pode ser chamado na trigger diretamente 
     public static void executeCallout(Set<Id> OrdersIds){
         System.debug('calloutOrders'+ OrdersIds);
+        
         String result = CalloutOrderSemTemplate.calloutOrders(OrdersIds);
+
         System.debug('resposta doe elias'+ result);
     }
+
 }

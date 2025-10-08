@@ -26,6 +26,7 @@ global with sharing class CalloutOrderSemTemplate {
                 orderExternalIds += ', '+ iOrder.ExternalId__c;
             }
         }
+
         OrdersToSerialize ordersToSerialize = new OrdersToSerialize(orderDataParametersList);
 
         String endpoint = 'callout:OrgDoElias/services//apexrest/upsertOrder';
@@ -45,6 +46,8 @@ global with sharing class CalloutOrderSemTemplate {
             response = new Http().send(request);
 
             System.debug('RESPONSE: '+ response.getBody());
+
+            ///////////////MELHORAR A RESPOSTA dO LOG//////////////////////
 
             String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', JSON.serialize(orderJson), 
             JSON.serialize(response.getBody()), endpoint, false, false);
