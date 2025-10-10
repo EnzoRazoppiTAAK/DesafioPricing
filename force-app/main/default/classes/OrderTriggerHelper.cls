@@ -9,9 +9,10 @@ public with sharing class OrderTriggerHelper {
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         isERPItem(newRecordList, username);
         statusChangesRules(newRecordList, oldRecordMap, username);
+        sendOrders(newRecordList);
     }
     public static void handleAfterUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
-        //sendAprovadoOrders(newRecordList, oldRecordMap);
+        
     }
     
     public static void cannotUpdateTheOrderAccount(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
@@ -31,32 +32,10 @@ public with sharing class OrderTriggerHelper {
         }
     }
 
-    public static void sendAprovadoOrders(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
-        Set<Id> ordersIdsToCallout = new Set<Id>();
-        for(Order iOrder: newRecordList){
-            if(iOrder.Status == 'Aprovado'){ 
-                ordersIdsToCallout.add(iOrder.Id);
-            }
-        }
-        if(!ordersIdsToCallout.isEmpty()){
-            executeCallout(ordersIdsToCallout);
-        }
-    }
-
-    @Future(callout=true) //vai rodar em outro contexto(Assincrono) e nao pode ser chamado na trigger diretamente 
-    public static void executeCallout(Set<Id> OrdersIds){
-        System.debug('calloutOrders'+ OrdersIds);
-        
-        String result = CalloutOrderSemTemplate.calloutOrders(OrdersIds); ////////////////////RESPOSTA DO ELIAS////////////////////////
-
-        System.debug('resposta do elias: '+ result);
-
-        
-    }
-
     public static void statusChangesRules(List<Order> newRecordList, Map<Id, Order> oldRecordMap, String username){
 
         Map<String, List<OrderItem>> orderIdToOrderItemMap = getOrderIdToOrderItemMap(newRecordList);
+        Set<Id> ordersIdsToCallout = new Set<Id>();
 
         for(Order iOrder: newRecordList){
 
@@ -76,13 +55,40 @@ public with sharing class OrderTriggerHelper {
                     Iorder.addError('Para mudar um pedido de Novo para Em Aprovação é necessário adicionar um produto');
                 }else{
                     if(iOrder.Discount__c >= 20 ){
-                        
+                        Approval.processSubmitRequest req = new Approval.processSubmitRequest();
+                        req.setObjectId(iOrder.Id);
+                        req.setSubmitterId(UserInfo.getUserId());
+                        req.setProcessDefinitionNameOrId('EmAprova_oToAprovadoInOrder');
+                        Approval.process(req);
                     }else{
                         iOrder.Status = 'Aprovado';
                     }
                 }
             }
         }
+    }
+
+    public static void sendOrders(List<Order> newRecordList){
+        Set<Id> ordersIdsToCallout = new Set<Id>();
+        for(Order iOrder: newRecordList){
+            if(iOrder.Status == 'Aprovado'){
+                ordersIdsToCallout.add(iOrder.Id);
+            }
+        }
+        if(!ordersIdsToCallout.isEmpty()){
+            if(System.IsBatch() == false && System.isFuture() == false){
+                executeCallout(ordersIdsToCallout);
+            }
+        }
+    }
+
+    @Future(callout=true) //vai rodar em outro contexto(Assincrono) e nao pode ser chamado na trigger diretamente 
+    public static void executeCallout(Set<Id> OrdersIds){
+        System.debug('calloutOrders'+ OrdersIds);
+        String result = CalloutOrderSemTemplate.calloutOrders(OrdersIds);
+        System.debug('resposta doe elias'+ result);
+
+    
     }
 
     public static void insertStatusBySalesforceShouldBeNovo(List<Order> newRecordList, String username){

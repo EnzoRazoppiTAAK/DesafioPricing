@@ -4,19 +4,24 @@ global with sharing class CalloutOrderSemTemplate {
     
         List<Order> ordersToSendList = [SELECT Id, ExternalId__c, OrderNumber, Account.ExternalId__c, AccountAddress__r.ExternalId__c, PaymentCondition__r.ExternalId__c, 
 		EffectiveDate, FreightType__c, DistributionCenter__r.ExternalId__c, deliveryDate__c, Status, Observation__c, 
-		(SELECT ExternalId__c, Product2.ExternalId__c, TotvsItem__c, UnitPrice, ListPrice, Quantity FROM OrderItems) 
+		(SELECT ExternalId__c, Product2.ExternalId__c, TotvsItem__c, UnitPrice, ListPrice, Quantity, OrderItemNumber FROM OrderItems) 
 		FROM Order 
 		WHERE Id IN: ordersIds
 		];
 
-        for(Order iOrder: ordersToSendList){
-            iOrder.ExternalId__c = iOrder.OrderNumber;
-        }
-        update ordersToSendList;
+        System.debug('ordersToSendList: '+ ordersToSendList);
 
-        String response = sendOrder(ordersToSendList);
-        
-        return response;
+        /*for(Order iOrder: ordersToSendList){
+            iOrder.ExternalId__c = iOrder.OrderNumber;
+            for(OrderItem iOrderItem: iOrder.OrderItems){
+                iOrderItem.ExternalId__c = iOrderItem.OrderItemNumber;
+            }
+        }
+        update ordersToSendList;*/
+
+        String responseCallout = sendOrder(ordersToSendList);
+
+        return responseCallout;
     }
 
     global static String sendOrder(List<Order> ordersToSendList){
