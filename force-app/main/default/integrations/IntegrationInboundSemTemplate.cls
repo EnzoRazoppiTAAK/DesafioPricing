@@ -40,12 +40,10 @@ global with sharing class IntegrationInboundSemTemplate {
             else orderExternalIds += + ', ' + iOrderData.orderCode;
         }
 
-        List<Order> ordersWithStatusActiveted = new List<Order>();
+        List<Order> ordersStatusToIntegrado = new List<Order>();
 		for(Order iOrder : ordersToUpsertList) {
-			if(iOrder.Status == 'Aprovado') {
-				ordersWithStatusActiveted.add(iOrder);
-				iOrder.Status = 'Novo';
-			}
+			ordersStatusToIntegrado.add(iOrder);
+			iOrder.Status = 'Novo';
 		}
 
         List<Database.UpsertResult> upsertOrders = Database.upsert(ordersToUpsertList, Order.ExternalId__c, false);
@@ -114,10 +112,11 @@ global with sharing class IntegrationInboundSemTemplate {
 
         hasDeleted = deleteOrderItemNotReceived(ordersToUpsertList, orderItemsToUpsertList);
 
-        for(Order iOrder : ordersWithStatusActiveted) {
-			iOrder.Status = 'Aprovado';
+        for(Order iOrder : ordersStatusToIntegrado) {
+			iOrder.Status = 'Integrado';
 		}
-        Database.upsert(ordersWithStatusActiveted, Order.ExternalId__c, false);
+
+        Database.upsert(ordersStatusToIntegrado, Order.ExternalId__c, false);
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];

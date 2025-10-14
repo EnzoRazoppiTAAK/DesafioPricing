@@ -36,7 +36,4 @@ public with sharing class OrderTriggerHandler {
 	public void beforeUpdate() {
         OrderTriggerHelper.handleBeforeUpdateOrder(newRecordList, oldRecordMap);
     }
-    public void afterUpdate() {
-        OrderTriggerHelper.handleAfterUpdateOrder(newRecordList, oldRecordMap);
-    }
 }

@@ -1,6 +1,6 @@
 global with sharing class CalloutOrderSemTemplate {
 
-    global static String calloutOrders(Set<Id> OrdersIds){
+    global static String calloutOrders(List<Id> OrdersIds){
     
         List<Order> ordersToSendList = [SELECT Id, ExternalId__c, OrderNumber, Account.ExternalId__c, AccountAddress__r.ExternalId__c, PaymentCondition__r.ExternalId__c, 
 		EffectiveDate, FreightType__c, DistributionCenter__r.ExternalId__c, deliveryDate__c, Status, Observation__c, 
@@ -9,17 +9,38 @@ global with sharing class CalloutOrderSemTemplate {
 		WHERE Id IN: ordersIds
 		];
 
-        System.debug('ordersToSendList: '+ ordersToSendList);
+        String responseCallout = sendOrder(ordersToSendList);
 
-        /*for(Order iOrder: ordersToSendList){
-            iOrder.ExternalId__c = iOrder.OrderNumber;
-            for(OrderItem iOrderItem: iOrder.OrderItems){
-                iOrderItem.ExternalId__c = iOrderItem.OrderItemNumber;
+        Map<String, Order> orderExternalIdToOrderMap = new Map<String, Order>();
+        for(Order iOrder: ordersToSendList){
+            orderExternalIdToOrderMap.put(iOrder.ExternalId__c, iOrder);
+        }
+        
+        if(responseCallout.substring(2, 13) == '"errorCode"'){ //caso de erro no callout 
+            for(Order iOrder: ordersToSendList){
+                iOrder.Status = 'Erro de Integração';
+                iOrder.ExternalId__c = null;
+            }
+        }else{
+            Map<String, Object> responseFields = (Map<String, Object>) JSON.deserializeUntyped(responseCallout);
+            List<Object> responseList = (List<Object>) responseFields.get('responses');
+            System.debug('responseList => ' + responseList);
+            for(Object iResponse: responseList){
+                Map<String, Object> responseObject = (Map<String, Object>) iResponse;
+
+                System.debug('hasError: '+ responseObject.get('hasError'));
+                System.debug('externalCode: '+ responseObject.get('externalCode'));
+                if(responseObject.get('hasError') == false){
+                    orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Integrado';
+                }else{
+                    orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Erro de Integração';
+                }
             }
         }
-        update ordersToSendList;*/
 
-        String responseCallout = sendOrder(ordersToSendList);
+        OrderTriggerHandler.disableTrigger();
+        update ordersToSendList;
+        OrderTriggerHandler.enableTrigger();
 
         return responseCallout;
     }

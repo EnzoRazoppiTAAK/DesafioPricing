@@ -3,16 +3,17 @@ public with sharing class OrderTriggerHelper {
         String username = UserInfo.getUserName();
         insertStatusBySalesforceShouldBeNovo(newRecordList, username);
     }
+
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
+        Map<Id, List<OrderItem>> orderIdToOrderItemMap =  getOrderIdToOrderItemMap(newRecordList);
+
         String username = UserInfo.getUserName();
-        calculateDiscount(newRecordList);
+        calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         isERPItem(newRecordList, username);
-        statusChangesRules(newRecordList, oldRecordMap, username);
-        sendOrders(newRecordList);
-    }
-    public static void handleAfterUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
-        
+        statusChangesRules(newRecordList, oldRecordMap, username, orderIdToOrderItemMap);
+        sendOrders(newRecordList, orderIdToOrderItemMap);
+
     }
     
     public static void cannotUpdateTheOrderAccount(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
@@ -25,40 +26,34 @@ public with sharing class OrderTriggerHelper {
     public static void isERPItem(List<Order> newRecordList, String username){
         for(Order iOrder: newRecordList){
             if(username != 'razoppienzo@brave-shark-nskhtp.com'){
-                if(iOrder.ExternalId__c != null){ ///erp e o adm podem mudar objetos erp
+                if(iOrder.ExternalId__c != null){ 
                     iOrder.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
                 }
             }
         }
     }
 
-    public static void statusChangesRules(List<Order> newRecordList, Map<Id, Order> oldRecordMap, String username){
+    public static void statusChangesRules(List<Order> newRecordList, Map<Id, Order> oldRecordMap, String username, Map<Id, List<OrderItem>> orderIdToOrderItemMap ){
 
-        Map<String, List<OrderItem>> orderIdToOrderItemMap = getOrderIdToOrderItemMap(newRecordList);
         Set<Id> ordersIdsToCallout = new Set<Id>();
 
         for(Order iOrder: newRecordList){
 
-            System.debug('oldRecordMap.get(iOrder.Id).Status.    ' + oldRecordMap.get(iOrder.Id).Status);
-            System.debug('iOrder.Status    ' + iOrder.Status);
-
             if (!((oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Em aprovação') || (oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Novo'))){
-
-                System.debug('ESTA PASANDO POR AQUI');
                 if(username != 'razoppienzo@brave-shark-nskhtp.com'){
-                    System.debug(username);
                     iOrder.addError('Somente é permitida ser feita a mudança de Status de Novo para Em aprovação.');
                 }
             }
+
             if(oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Em aprovação'){
                 if(!orderIdToOrderItemMap.containsKey(iOrder.Id)) {
-                    Iorder.addError('Para mudar um pedido de Novo para Em Aprovação é necessário adicionar um produto');
+                    iOrder.addError('Para mudar um pedido de Novo para Em Aprovação é necessário adicionar um produto');
                 }else{
                     if(iOrder.Discount__c >= 20 ){
                         Approval.processSubmitRequest req = new Approval.processSubmitRequest();
                         req.setObjectId(iOrder.Id);
                         req.setSubmitterId(UserInfo.getUserId());
-                        req.setProcessDefinitionNameOrId('EmAprova_oToAprovadoInOrder');
+                        req.setProcessDefinitionNameOrId('EmAprovadoToAprovadoInOrder');
                         Approval.process(req);
                     }else{
                         iOrder.Status = 'Aprovado';
@@ -68,13 +63,20 @@ public with sharing class OrderTriggerHelper {
         }
     }
 
-    public static void sendOrders(List<Order> newRecordList){
-        Set<Id> ordersIdsToCallout = new Set<Id>();
+    public static void sendOrders(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
+        List<Id> ordersIdsToCallout = new List<Id>();
+        List<OrderItem> orderItemsToUpdate = new List<OrderItem>();
         for(Order iOrder: newRecordList){
             if(iOrder.Status == 'Aprovado'){
                 ordersIdsToCallout.add(iOrder.Id);
+                iOrder.ExternalId__c = iOrder.OrderNumber;
+                for(OrderItem iOrderItem: orderIdToOrderItemMap.get(iOrder.Id)){
+                    iOrderItem.ExternalId__c = iOrderItem.OrderItemNumber;
+                    orderItemsToUpdate.add(iOrderItem);
+                }
             }
         }
+        update orderItemsToUpdate;
         if(!ordersIdsToCallout.isEmpty()){
             if(System.IsBatch() == false && System.isFuture() == false){
                 executeCallout(ordersIdsToCallout);
@@ -83,12 +85,10 @@ public with sharing class OrderTriggerHelper {
     }
 
     @Future(callout=true) //vai rodar em outro contexto(Assincrono) e nao pode ser chamado na trigger diretamente 
-    public static void executeCallout(Set<Id> OrdersIds){
-        System.debug('calloutOrders'+ OrdersIds);
-        String result = CalloutOrderSemTemplate.calloutOrders(OrdersIds);
-        System.debug('resposta doe elias'+ result);
+    public static void executeCallout(List<Id> OrdersIds){
 
-    
+        String responseCallout = CalloutOrderSemTemplate.calloutOrders(OrdersIds);
+        System.debug('resposta do elias: '+ responseCallout);
     }
 
     public static void insertStatusBySalesforceShouldBeNovo(List<Order> newRecordList, String username){
@@ -100,9 +100,7 @@ public with sharing class OrderTriggerHelper {
             }
         }
     }
-    public static void calculateDiscount(List<Order> newRecordList){
-
-        Map<String, List<OrderItem>> orderIdToOrderItemMap = getOrderIdToOrderItemMap(newRecordList);
+    public static void calculateDiscount(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
 
         for(Order iOrder: newRecordList){
             if(orderIdToOrderItemMap.containsKey(iOrder.Id)){
@@ -113,21 +111,20 @@ public with sharing class OrderTriggerHelper {
                     count++;
                     totalDiscount += (iOrderItem.Discount__c/100);
                 }
-                System.debug('iOrder.Discount__c: '+ totalDiscount);
+
                 iOrder.Discount__c = (totalDiscount/count)*100;
-                System.debug('iOrder.Discount__c: '+ iOrder.Discount__c);
             }
         }
     }
 
-    public static Map<String, List<OrderItem>> getOrderIdToOrderItemMap(List<Order> newRecordList){
+    public static Map<Id, List<OrderItem>> getOrderIdToOrderItemMap(List<Order> newRecordList){
         List<OrderItem> orderItemsList = [
-            SELECT Id, Discount__c, OrderId
+            SELECT Id, Discount__c, OrderId, OrderItemNumber
             FROM OrderItem
             WHERE OrderId IN: newRecordList
         ];
 
-        Map<String, List<OrderItem>> orderIdToOrderItemMap = new Map<String, List<OrderItem>>();
+        Map<Id, List<OrderItem>> orderIdToOrderItemMap = new Map<Id, List<OrderItem>>();
         for(OrderItem iOrderItem: orderItemsList){
             if(orderIdToOrderItemMap.containsKey(iOrderItem.OrderId)) orderIdToOrderItemMap.get(iOrderItem.OrderId).add(iOrderItem);
             else orderIdToOrderItemMap.put(iOrderItem.OrderId, new List<OrderItem>{iOrderItem});
