@@ -2,7 +2,22 @@
 global with sharing class IntegrationInboundSemTemplate {
 
     @HttpPost
-    global static ResponseInboundOrders upsertOrder(List<OrderData> request) {
+    global static ResponseInboundOrders upsertOrder() {
+        RestRequest context = RestContext.request; 
+        RequestOrders requestOrders;
+
+        try{
+            requestOrders = (RequestOrders) JSON.deserialize(context.requestBody.toString(), RequestOrders.class);
+        }catch(Exception e){
+            if(e.getMessage().contains('either a decimal digit number')) {
+                RestContext.response.statusCode = 400;
+                String error = 'Quantity, UnitPrice e ListPrice devem receber números.';
+
+                List<Response> responseList = new List<Response>{new Response(null, null, true, error, 'OrderItem')};
+                return new ResponseInboundOrders(responseList);
+            }
+        }
+
         List<Order> ordersToUpsertList = new List<Order>();
         List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
         List<OrderItemData> orderItemDataList= new List<OrderItemData>();
@@ -13,7 +28,7 @@ global with sharing class IntegrationInboundSemTemplate {
         Boolean hasDeleted;
         String orderExternalIds = '';
 
-        for(OrderData iOrderData : request){
+        for(OrderData iOrderData : requestOrders.request){
 
             ordersToUpsertList.add(new Order(
 				ExternalId__c			= iOrderData.orderCode,
@@ -53,15 +68,35 @@ global with sharing class IntegrationInboundSemTemplate {
             Order order = ordersToUpsertList[i];
 			Database.UpsertResult upsertOrderResult = upsertOrders[i];
 
+            System.debug('Order: '+order);
+            System.debug('Account: '+order.Account);
+            System.debug('DistributionCenter__r: '+order.DistributionCenter__r.ExternalId__c);
+
             Response responseOrder;
         
             if(upsertOrderResult.isSuccess()){
                 responseOrder = new Response(upsertOrderResult.getId(), order.ExternalId__c, false, null, 'Order');
             }else{
+                hasError = true;
                 String error = '';
                 for(Database.Error iError : upsertOrderResult.getErrors()){
-                    error += iError.getMessage() + ' ';
-                    hasError = true;
+                    if(iError.getMessage().contains('not found for field ExternalId__c in entity Account')){
+                        error = 'AccountCode não pode ser null ou Conta não encontrada com esse código.';
+                    }
+                    else if(iError.getMessage().contains('not found for field ExternalId__c in entity DistributionCenter__c')) {
+                        error = 'DistributionCenterCode não pode ser null ou Centro de Distribuição não encontrado com esse código.';
+                    }
+                    else if(iError.getMessage().contains('not found for field ExternalId__c in entity PaymentCondition__c')) {
+                        error = 'PaymentCode não pode ser null ou Condição de Pagamento não encontrado com esse código.';
+                    }
+                    else if(iError.getMessage().contains('not found for field ExternalId__c in entity PaymentCondition__c')) {
+                        error = 'AddressCode não pode ser null ou Endereço de Conta não encontrado com esse código.';
+                    }
+                    else if(order.FreightType__c != 'FOB' && order.FreightType__c != 'CIF') {
+                        error = 'FreightType inválido.';
+                    }else{
+                        error += iError.getMessage() + ' ';
+                    }
                 }
                 responseOrder = new Response(null, order.ExternalId__c, true, error, 'Order');
             }
@@ -75,7 +110,6 @@ global with sharing class IntegrationInboundSemTemplate {
             WHERE ExternalId__c IN :externalIdsOrderItemToOrder.keySet()
         ]);
         delete orderItemsInDatabase;
-
 
         for(OrderItemData iOrderItemData : orderItemDataList){
             orderItemsToUpsertList.add(new OrderItem(
@@ -91,7 +125,7 @@ global with sharing class IntegrationInboundSemTemplate {
 
         List<Database.UpsertResult> upsertOrderItems = Database.upsert(orderItemsToUpsertList, OrderItem.ExternalId__c, false);
         
-       for (Integer i = 0; i < upsertOrderItems.size(); i++){
+        for (Integer i = 0; i < upsertOrderItems.size(); i++){
             OrderItem orderItem = orderItemsToUpsertList[i];
 			Database.UpsertResult upsertOrderItemResult = upsertOrderItems[i];
 
@@ -102,8 +136,14 @@ global with sharing class IntegrationInboundSemTemplate {
             }else{
                 String error = '';
                 for(Database.Error iError : upsertOrderItemResult.getErrors()){
-                    error += iError.getMessage() + ' ';
-                    hasError = true;
+                    if(iError.getMessage().contains('not found for field ExternalId__c in entity Product2')){
+                        error = 'ProductCode não pode ser null ou produto não encontrado com esse código.';
+                    }
+                    else if(iError.getMessage().contains('not found for field ExternalId__c in entity Product2')){
+                        error = 'ProductCode não pode ser null ou produto não encontrado com esse código.';
+                    }else{
+                        error += iError.getMessage() + ' ';
+                    }
                 }
                 responseOrderItem = new Response(null, orderItem.ExternalId__c, true, error, 'OrderItem');
             }
@@ -121,15 +161,18 @@ global with sharing class IntegrationInboundSemTemplate {
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];
 			Database.UpsertResult upsertOrderResult = upsertOrders[i];
+
         
-            if(!upsertOrderResult.isSuccess()){ 
+            if(!upsertOrderResult.isSuccess()){
+                hasError = true;
                 String error = '';
                 for(Database.Error iError : upsertOrderResult.getErrors()){
                     error += iError.getMessage() + ' ';
-                    hasError = true;
                 }
-                orderResponseMap.get(order.ExternalId__c).hasError = false;
-                orderResponseMap.get(order.ExternalId__c).errorMessage = error;
+                if(orderResponseMap.get(order.ExternalId__c).hasError == false){
+                    orderResponseMap.get(order.ExternalId__c).hasError = true;
+                    orderResponseMap.get(order.ExternalId__c).errorMessage = error;
+                }
             }
         }
         
@@ -138,14 +181,13 @@ global with sharing class IntegrationInboundSemTemplate {
         String endpoint = 'https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder';
 
         OrderTriggerHandler.disableTrigger();
-        String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'INBOUND', JSON.serialize(request), 
+        String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'INBOUND', JSON.serialize(RequestOrders), 
         JSON.serialize(responseInboundOrders), endpoint, hasError, hasDeleted);
         IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
                 
-        RestResponse response = RestContext.response;
-		response.statusCode = 201;
+		RestContext.response.statusCode = 201;
 
         return responseInboundOrders;
     }
@@ -224,6 +266,14 @@ global with sharing class IntegrationInboundSemTemplate {
 
         public ResponseInboundOrders(List<Response> response){
             this.response = response;
+        }
+    }
+
+    global class RequestOrders{
+        public List<OrderData> request;
+
+        public RequestOrders(List<OrderData> request){
+            this.request = request;
         }
     }
 }
