@@ -8,6 +8,7 @@ global with sharing class CalloutOrderSemTemplate {
 		FROM Order 
 		WHERE Id IN: ordersIds
 		];
+    
 
         String responseCallout = sendOrder(ordersToSendList);
 
@@ -15,21 +16,19 @@ global with sharing class CalloutOrderSemTemplate {
         for(Order iOrder: ordersToSendList){
             orderExternalIdToOrderMap.put(iOrder.ExternalId__c, iOrder);
         }
-        
+
         if(responseCallout.substring(2, 13) == '"errorCode"'){ //caso de erro no callout 
             for(Order iOrder: ordersToSendList){
                 iOrder.Status = 'Erro de Integração';
-                iOrder.ExternalId__c = null;
             }
         }else{
             Map<String, Object> responseFields = (Map<String, Object>) JSON.deserializeUntyped(responseCallout);
             List<Object> responseList = (List<Object>) responseFields.get('responses');
             System.debug('responseList => ' + responseList);
+
             for(Object iResponse: responseList){
                 Map<String, Object> responseObject = (Map<String, Object>) iResponse;
 
-                System.debug('hasError: '+ responseObject.get('hasError'));
-                System.debug('externalCode: '+ responseObject.get('externalCode'));
                 if(responseObject.get('hasError') == false){
                     orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Integrado';
                 }else{
@@ -78,8 +77,6 @@ global with sharing class CalloutOrderSemTemplate {
             response = new Http().send(request);
 
             System.debug('RESPONSE: '+ response.getBody());
-
-            ///////////////MELHORAR A RESPOSTA dO LOG//////////////////////
 
             String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', JSON.serialize(orderJson), 
             JSON.serialize(response.getBody()), endpoint, false, false);

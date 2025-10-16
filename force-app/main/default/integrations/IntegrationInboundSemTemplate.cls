@@ -68,10 +68,6 @@ global with sharing class IntegrationInboundSemTemplate {
             Order order = ordersToUpsertList[i];
 			Database.UpsertResult upsertOrderResult = upsertOrders[i];
 
-            System.debug('Order: '+order);
-            System.debug('Account: '+order.Account);
-            System.debug('DistributionCenter__r: '+order.DistributionCenter__r.ExternalId__c);
-
             Response responseOrder;
         
             if(upsertOrderResult.isSuccess()){
@@ -221,6 +217,14 @@ global with sharing class IntegrationInboundSemTemplate {
         }
     }
 
+    global class RequestOrders{
+        public List<OrderData> request;
+
+        public RequestOrders(List<OrderData> request){
+            this.request = request;
+        }
+    }
+
     global class OrderData{
 		public String accountCode;
         public String addressCode;
@@ -245,6 +249,7 @@ global with sharing class IntegrationInboundSemTemplate {
 		public String productCode;
 		public Boolean totvsItem;
     }
+    
     global virtual class Response{
         public String salesforceId;
         public String externalCode;
@@ -266,14 +271,6 @@ global with sharing class IntegrationInboundSemTemplate {
 
         public ResponseInboundOrders(List<Response> response){
             this.response = response;
-        }
-    }
-
-    global class RequestOrders{
-        public List<OrderData> request;
-
-        public RequestOrders(List<OrderData> request){
-            this.request = request;
         }
     }
 }

@@ -10,7 +10,7 @@ public with sharing class OrderTriggerHelper {
 
         calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
-        isERPItem(newRecordList, username);
+        cannotUpdateIntegradoItem(newRecordList, username);
         statusChangesRules(newRecordList, oldRecordMap, username, orderIdToOrderItemMap);
         sendOrders(newRecordList, orderIdToOrderItemMap);
 
@@ -67,12 +67,10 @@ public with sharing class OrderTriggerHelper {
         }
     }
 
-    public static void isERPItem(List<Order> newRecordList, String username){
+    public static void cannotUpdateIntegradoItem(List<Order> newRecordList, String username){
         for(Order iOrder: newRecordList){
-            if(username != 'razoppienzo@brave-shark-nskhtp.com'){
-                if(iOrder.ExternalId__c != null){ 
-                    iOrder.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
-                }
+            if(iOrder.Status == 'Integrado'){
+                iOrder.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
             }
         }
     }
@@ -82,12 +80,6 @@ public with sharing class OrderTriggerHelper {
         Set<Id> ordersIdsToCallout = new Set<Id>();
 
         for(Order iOrder: newRecordList){
-
-            if (!((oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Em aprovação') || (oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Novo'))){
-                if(username != 'razoppienzo@brave-shark-nskhtp.com'){
-                    iOrder.addError('Somente é permitida ser feita a mudança de Status de Novo para Em aprovação.');
-                }
-            }
 
             if(oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Em aprovação'){
                 if(!orderIdToOrderItemMap.containsKey(iOrder.Id)) {
@@ -101,14 +93,6 @@ public with sharing class OrderTriggerHelper {
                         Approval.process(req);
                     }else{
                         iOrder.Status = 'Aprovado';
-                    }
-                }
-            }
-            
-            if(oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Integrado'){
-                if(username == 'razoppienzo@brave-shark-nskhtp.com'){
-                    if(!orderIdToOrderItemMap.containsKey(iOrder.Id)) {
-                        iOrder.addError('Para um pedido com Status Integrado é necessário adicionar um produto');
                     }
                 }
             }
@@ -140,6 +124,6 @@ public with sharing class OrderTriggerHelper {
     public static void executeCallout(List<Id> OrdersIds){
 
         String responseCallout = CalloutOrderSemTemplate.calloutOrders(OrdersIds);
-        System.debug('resposta do elias: '+ responseCallout);
+        System.debug('Resposta do Elias: '+ responseCallout);
     }
 }

@@ -3,4 +3,5 @@ public with sharing class InvocableMethodOrder {
     public static void invocableProcessIntegration(List<Id> OrdersIds){
        OrderTriggerHelper.executeCallout(OrdersIds);
     }
+    
 }

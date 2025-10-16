@@ -157,7 +157,7 @@ public with sharing class OrderTrigger_Test {
         
         Order firstOrder = (Order)testFactory.createSObject(new Order( 
             Name = 'Test first Order',
-            Status = 'Draft',
+            Status = 'Novo',
             AccountId =  firstAccount.Id,
             AccountAddress__c = firstAccountAddress.Id,
             EffectiveDate = Date.today(),
@@ -169,6 +169,98 @@ public with sharing class OrderTrigger_Test {
         ));
         insert firstOrder;
 
+    }
+
+    @IsTest
+    static void testInsertStatusShouldBeNovo(){
+        User userIntegration = [SELECT Id FROM User WHERE UserName = 'userintegration@api.com' LIMIT 1];
+
+        System.runAs(userIntegration){
+            TestFactorySObject testFactory = TestFactorySObject.getInstance();
+
+            Id pricebookId = TestFactorySObject.getStandardPricebookId();
+            DistributionCenter__c firstDistributionCenter = [SELECT Id FROM DistributionCenter__c LIMIT 1];
+            PaymentCondition__c firstPaymentCondition = [SELECT Id FROM PaymentCondition__c LIMIT 1];
+            Contract firstContract = [SELECT Id FROM Contract LIMIT 1];
+            Account firstAccount = [SELECT Id FROM Account LIMIT 1];
+            AccountAddress__c firstAccountAddress = [SELECT Id FROM AccountAddress__c LIMIT 1];
+
+            Order firstOrder = (Order)testFactory.createSObject(new Order( 
+                Name = 'Test first Order',
+                Status = 'Em aprovação',
+                AccountId =  firstAccount.Id,
+                AccountAddress__c = firstAccountAddress.Id,
+                EffectiveDate = Date.today(),
+                ContractId = firstContract.Id,
+                PaymentCondition__c = firstPaymentCondition.Id,
+                DistributionCenter__c = firstDistributionCenter.Id,
+                Pricebook2Id = pricebookId,
+                FreightType__c = 'CIF'
+            ));
+
+            Order secondtOrder = (Order)testFactory.createSObject(new Order( 
+                Name = 'Test Second Order',
+                Status = 'Aprovado',
+                AccountId =  firstAccount.Id,
+                AccountAddress__c = firstAccountAddress.Id,
+                EffectiveDate = Date.today(),
+                ContractId = firstContract.Id,
+                PaymentCondition__c = firstPaymentCondition.Id,
+                DistributionCenter__c = firstDistributionCenter.Id,
+                Pricebook2Id = pricebookId,
+                FreightType__c = 'CIF'
+            ));
+
+            Order thirdOrder = (Order)testFactory.createSObject(new Order( 
+                Name = 'Test third Order',
+                Status = 'Erro de integração',
+                AccountId =  firstAccount.Id,
+                AccountAddress__c = firstAccountAddress.Id,
+                EffectiveDate = Date.today(),
+                ContractId = firstContract.Id,
+                PaymentCondition__c = firstPaymentCondition.Id,
+                DistributionCenter__c = firstDistributionCenter.Id,
+                Pricebook2Id = pricebookId,
+                FreightType__c = 'CIF'
+            ));
+
+            Order fourthOrder = (Order)testFactory.createSObject(new Order( 
+                Name = 'Test fourth Order',
+                Status = 'Integrado',
+                AccountId =  firstAccount.Id,
+                AccountAddress__c = firstAccountAddress.Id,
+                EffectiveDate = Date.today(),
+                ContractId = firstContract.Id,
+                PaymentCondition__c = firstPaymentCondition.Id,
+                DistributionCenter__c = firstDistributionCenter.Id,
+                Pricebook2Id = pricebookId,
+                FreightType__c = 'CIF'
+            ));
+            List<Order> orders = new List<Order>{firstOrder, secondtOrder, thirdOrder, fourthOrder};
+            Test.startTest();
+
+            List<Database.SaveResult> ordersWeWillTryToInsert = Database.insert(orders, false);
+            List<Database.SaveResult> ordersInserted = new List<Database.SaveResult>();
+
+            for(Database.SaveResult iOrder: ordersWeWillTryToInsert){
+                if(iOrder.isSuccess()){ 
+                   ordersInserted.add(iOrder);
+                }
+            }
+
+            Test.stopTest();
+
+            Assert.areEqual(0, ordersInserted.size(), 'Error: Should not be able to insert Order without Status Novo');
+        }
+    }
+    
+
+    @IsTest
+    static void testCalculateDiscount(){
+        User userIntegration = [SELECT Id FROM User WHERE UserName = 'userintegration@api.com' LIMIT 1];
+
+        System.runAs(userIntegration){
+        }
     }
 
     @IsTest
@@ -231,5 +323,35 @@ public with sharing class OrderTrigger_Test {
         Test.stopTest();
 
         Assert.isFalse(orderWeWillTryToUpdate.isSuccess(), 'Error: Should not be able to update the order after it was activated');
+    }
+
+    @IsTest
+    static void testIsERPItem(){
+        User userIntegration = [SELECT Id FROM User WHERE UserName = 'userintegration@api.com' LIMIT 1];
+
+        System.runAs(userIntegration){
+            TestFactorySObject testFactory = TestFactorySObject.getInstance();
+
+            Id pricebookId = TestFactorySObject.getStandardPricebookId();
+            DistributionCenter__c firstDistributionCenter = [SELECT Id FROM DistributionCenter__c LIMIT 1];
+            PaymentCondition__c firstPaymentCondition = [SELECT Id FROM PaymentCondition__c LIMIT 1];
+            Contract firstContract = [SELECT Id FROM Contract LIMIT 1];
+            Account firstAccount = [SELECT Id FROM Account LIMIT 1];
+            AccountAddress__c firstAccountAddress = [SELECT Id FROM AccountAddress__c LIMIT 1];
+
+            Order firstOrder = (Order)testFactory.createSObject(new Order( 
+                Name = 'Test first Order',
+                Status = 'Em aprovação',
+                AccountId =  firstAccount.Id,
+                AccountAddress__c = firstAccountAddress.Id,
+                EffectiveDate = Date.today(),
+                ContractId = firstContract.Id,
+                PaymentCondition__c = firstPaymentCondition.Id,
+                DistributionCenter__c = firstDistributionCenter.Id,
+                Pricebook2Id = pricebookId,
+                FreightType__c = 'CIF'
+            ));
+
+        }
     }
 }
