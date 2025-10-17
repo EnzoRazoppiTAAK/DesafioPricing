@@ -1,27 +1,23 @@
 public with sharing class OrderTriggerHelper {
     public static void handleBeforeInsertOrder(List<Order> newRecordList){
-        String username = UserInfo.getUserName();
-        insertStatusBySalesforceShouldBeNovo(newRecordList, username);
+        insertStatusBySalesforceShouldBeNovo(newRecordList);
     }
 
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         Map<Id, List<OrderItem>> orderIdToOrderItemMap =  getOrderIdToOrderItemMap(newRecordList);
-        String username = UserInfo.getUserName();
 
         calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
-        cannotUpdateIntegradoItem(newRecordList, username);
-        statusChangesRules(newRecordList, oldRecordMap, username, orderIdToOrderItemMap);
+        cannotUpdateIntegradoItem(newRecordList);
+        statusChangesRules(newRecordList, oldRecordMap, orderIdToOrderItemMap);
         sendOrders(newRecordList, orderIdToOrderItemMap);
 
     }
 
-    public static void insertStatusBySalesforceShouldBeNovo(List<Order> newRecordList, String username){
+    public static void insertStatusBySalesforceShouldBeNovo(List<Order> newRecordList){
         for(Order iOrder: newRecordList){
             if(!(iOrder.Status == 'Novo')){
-                if(username != 'razoppienzo@brave-shark-nskhtp.com'){
-                    iOrder.addError('Somente é permitida ser feita a mudança de Status de Novo para Em aprovação.');
-                }
+                iOrder.addError('Somente é permitida ser feita a mudança de Status de Novo para Em aprovação.');
             }
         }
     }
@@ -67,7 +63,7 @@ public with sharing class OrderTriggerHelper {
         }
     }
 
-    public static void cannotUpdateIntegradoItem(List<Order> newRecordList, String username){
+    public static void cannotUpdateIntegradoItem(List<Order> newRecordList){
         for(Order iOrder: newRecordList){
             if(iOrder.Status == 'Integrado'){
                 iOrder.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
@@ -75,7 +71,7 @@ public with sharing class OrderTriggerHelper {
         }
     }
 
-    public static void statusChangesRules(List<Order> newRecordList, Map<Id, Order> oldRecordMap, String username, Map<Id, List<OrderItem>> orderIdToOrderItemMap ){
+    public static void statusChangesRules(List<Order> newRecordList, Map<Id, Order> oldRecordMap, Map<Id, List<OrderItem>> orderIdToOrderItemMap ){
 
         Set<Id> ordersIdsToCallout = new Set<Id>();
 
