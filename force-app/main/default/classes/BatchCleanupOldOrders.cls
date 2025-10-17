@@ -1,7 +1,9 @@
 global with sharing class BatchCleanupOldOrders implements Database.Batchable<sObject>, Schedulable{
     global Database.QueryLocator start(Database.BatchableContext bc){
 
-        Date sixMonthsAgo = Date.today().addMonths(-6);
+        DevParameters__mdt devParameters = DevParameters__mdt.getInstance('MaxNumberMonthsOrder');
+
+        Date sixMonthsAgo = Date.today().addMonths(-Integer.valueOf(devParameters.Value__c));
         String orders = 'SELECT Id, CreatedDate, ReceivedOrderLog__c, SentOrderLog__c FROM Order WHERE CreatedDate < :sixMonthsAgo';
 
         return Database.getQueryLocator(orders);
