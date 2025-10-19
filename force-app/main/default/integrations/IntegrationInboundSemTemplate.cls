@@ -9,13 +9,20 @@ global with sharing class IntegrationInboundSemTemplate {
         try{
             requestOrders = (RequestOrders) JSON.deserialize(context.requestBody.toString(), RequestOrders.class);
         }catch(Exception e){
-            if(e.getMessage().contains('either a decimal digit number')) {
-                RestContext.response.statusCode = 400;
-                String error = 'Quantity, UnitPrice e ListPrice devem receber números.';
+            RestContext.response.statusCode = 400;
+            String error;
+            List<Response> responseList;
 
-                List<Response> responseList = new List<Response>{new Response(null, null, true, error, 'OrderItem')};
-                return new ResponseInboundOrders(responseList);
+            if(e.getMessage().contains('either a decimal digit number')) {
+                error = 'Quantity, UnitPrice e ListPrice devem receber números.';
+                responseList = new List<Response>{new Response(null, null, true, error, 'OrderItem')};
+
+            }else{
+                error = 'JSON mal formatado.';
+                responseList = new List<Response>{new Response(null, null, true, error, '')};
+
             }
+            return new ResponseInboundOrders(responseList);
         }
 
         List<Order> ordersToUpsertList = new List<Order>();
@@ -23,6 +30,8 @@ global with sharing class IntegrationInboundSemTemplate {
         List<OrderItemData> orderItemDataList= new List<OrderItemData>();
         Map<String, String> externalIdsOrderItemToOrder = new  Map<String, String>();
         Map<String, Response> orderResponseMap = new Map<String, Response>();
+        Map<String, List<Response>> orderToOrderItemResponseMap = new Map<String, List<Response>>();
+        Map<String, List<OrderItem>> orderToIncorrectOrderItemMap = new Map<String, List<OrderItem>>();
         List<Response> responseList = new List<Response>();
         Boolean hasError = false;
         Boolean hasDeleted;
@@ -141,8 +150,21 @@ global with sharing class IntegrationInboundSemTemplate {
                         error += iError.getMessage() + ' ';
                     }
                 }
+                if(orderToIncorrectOrderItemMap.containsKey(orderItem.Order.ExternalId__c)) {
+                    orderToIncorrectOrderItemMap.get(orderItem.Order.ExternalId__c).add(orderItem);
+                }else{
+                    orderToIncorrectOrderItemMap.put(orderItem.Order.ExternalId__c, new List<OrderItem>{orderItem});
+                }
+                
                 responseOrderItem = new Response(null, orderItem.ExternalId__c, true, error, 'OrderItem');
             }
+
+            if(orderToOrderItemResponseMap.containsKey(orderItem.Order.ExternalId__c)) {
+                    orderToOrderItemResponseMap.get(orderItem.Order.ExternalId__c).add(responseOrderItem);
+            }else{
+                orderToOrderItemResponseMap.put(orderItem.Order.ExternalId__c, new List<Response>{responseOrderItem});
+            }
+
             responseList.add(responseOrderItem);
         }
 
@@ -153,6 +175,7 @@ global with sharing class IntegrationInboundSemTemplate {
 		}
 
         Database.upsert(ordersStatusToIntegrado, Order.ExternalId__c, false);
+        List<Order> ordersTodeleteList = new List<Order>();
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];
@@ -170,7 +193,25 @@ global with sharing class IntegrationInboundSemTemplate {
                     orderResponseMap.get(order.ExternalId__c).errorMessage = error;
                 }
             }
+
+            if(orderToIncorrectOrderItemMap.containsKey(order.ExternalId__c)){
+                ordersTodeleteList.add(order);
+                if(orderResponseMap.get(order.ExternalId__c).hasError == false){
+                    orderResponseMap.get(order.ExternalId__c).hasError = true;
+                    orderResponseMap.get(order.ExternalId__c).errorMessage = 'Order não adcionado por erro nem um ou mais OrderItems.';
+                }
+
+                for(Response iOrderItemResponse : orderToOrderItemResponseMap.get(order.ExternalId__c)){
+                    if(iOrderItemResponse.hasError == false){
+                        iOrderItemResponse.hasError = true;
+                        iOrderItemResponse.salesforceId = null;
+                        iOrderItemResponse.errorMessage = 'OrderItem não adcionado por erro em algum OrderItem da sua mesma Order.';
+                    }
+                }
+            }
         }
+
+        delete ordersTodeleteList;
         
         ResponseInboundOrders responseInboundOrders = new ResponseInboundOrders(responseList);
 

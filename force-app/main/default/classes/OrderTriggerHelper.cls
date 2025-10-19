@@ -66,7 +66,7 @@ public with sharing class OrderTriggerHelper {
     public static void cannotUpdateIntegradoItem(List<Order> newRecordList){
         for(Order iOrder: newRecordList){
             if(iOrder.Status == 'Integrado'){
-                iOrder.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
+                iOrder.addError('Order com status Integrado não pode ser modificada!');
             }
         }
     }
