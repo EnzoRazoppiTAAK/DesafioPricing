@@ -31,9 +31,9 @@ public with sharing class DevUserTriggerHandler {
 	}
 
     public void afterInsert() {
-        DevUserTriggerHelper.afterInsert(newRecordList);
+        DevUserTriggerHelper.handleAfterInsertDevUser(newRecordList);
 	}
 	public void afterUpdate() {
-		DevUserTriggerHelper.afterUpdate(newRecordList, oldRecordMap);
+		DevUserTriggerHelper.handleAfterUpdateDevUser(newRecordList, oldRecordMap);
 	}
 }

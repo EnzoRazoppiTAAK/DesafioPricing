@@ -1,5 +1,5 @@
 @IsTest
-public with sharing class OrderTrigger_Test {
+global with sharing class OrderTrigger_Test {
     @TestSetup
     static void makeData(){
         TestFactorySObject testFactory = TestFactorySObject.getInstance();
@@ -257,11 +257,6 @@ public with sharing class OrderTrigger_Test {
         TestFactorySObject testFactory = TestFactorySObject.getInstance();
 
         Id pricebookId = TestFactorySObject.getStandardPricebookId();
-        DistributionCenter__c firstDistributionCenter = [SELECT Id FROM DistributionCenter__c LIMIT 1];
-        PaymentCondition__c firstPaymentCondition = [SELECT Id FROM PaymentCondition__c LIMIT 1];
-        Contract firstContract = [SELECT Id FROM Contract LIMIT 1];
-        Account firstAccount = [SELECT Id FROM Account LIMIT 1];
-        AccountAddress__c firstAccountAddress = [SELECT Id FROM AccountAddress__c LIMIT 1];
         Product2 firstProduct  = [SELECT Id, ProductionCost__c FROM Product2 LIMIT 1];
         PricebookEntry firstPricebookEntry = [SELECT Id FROM PricebookEntry LIMIT 1];
         Order firstOrder = [SELECT Id, Discount__c FROM Order LIMIT 1];
@@ -317,71 +312,151 @@ public with sharing class OrderTrigger_Test {
         Test.startTest();
 
         Id pricebookId = TestFactorySObject.getStandardPricebookId();
-        DistributionCenter__c firstDistributionCenter = [SELECT Id FROM DistributionCenter__c LIMIT 1];
-        PaymentCondition__c firstPaymentCondition = [SELECT Id FROM PaymentCondition__c LIMIT 1];
-        Contract firstContract = [SELECT Id FROM Contract LIMIT 1];
-        Account firstAccount = [SELECT Id FROM Account LIMIT 1];
-        AccountAddress__c firstAccountAddress = [SELECT Id FROM AccountAddress__c LIMIT 1];
+        Product2 firstProduct  = [SELECT Id, ProductionCost__c FROM Product2 LIMIT 1];
+        PricebookEntry firstPricebookEntry = [SELECT Id FROM PricebookEntry LIMIT 1];
+        Order firstOrder = [SELECT Id, Status, FreightType__c, ExternalId__c FROM Order LIMIT 1];
+        Contract firstContract = [SELECT Id, Status FROM Contract LIMIT 1];
+        User userIntegration = [SELECT Id, Username FROM User WHERE Username = 'userintegration@api.com' LIMIT 1];
 
-        Order firstOrder = (Order)testFactory.createSObject(new Order( 
-            Name = 'Test first Order',
-            Status = 'Integrado',
-            AccountId =  firstAccount.Id,
-            AccountAddress__c = firstAccountAddress.Id,
-            EffectiveDate = Date.today(),
-            ContractId = firstContract.Id,
-            PaymentCondition__c = firstPaymentCondition.Id,
-            DistributionCenter__c = firstDistributionCenter.Id,
-            Pricebook2Id = pricebookId,
-            FreightType__c = 'CIF'
+        OrderItem firstOrderItem = (OrderItem)testFactory.createSObject(new OrderItem(
+            Product2Id = firstProduct.Id,
+            Quantity = 1,
+            UnitPrice = firstProduct.ProductionCost__c,
+            OrderId = firstOrder.Id,
+            PricebookEntryId = firstPricebookEntry.Id
         ));
-
-        insert firstOrder;
+        insert firstOrderItem;
 
         firstContract.Status = 'Activated';
-        firstOrder.Status = 'Activated';
-
         update firstContract;
+
+        firstOrder.Status = 'Integrado';
         update firstOrder;
 
-        firstOrder = [SELECT Id, AccountId, Status, FreightType__c FROM Order LIMIT 1];
+        System.runAs(userIntegration){
+            firstOrder.FreightType__c = 'FOB';
+            Database.SaveResult orderWeWillTryToUpdate = Database.update(firstOrder, false);
 
-        firstOrder.FreightType__c = 'FOB';
+            Assert.isFalse(orderWeWillTryToUpdate.isSuccess(), 'Error: Should not be able to update the order after it was Integrado');
+        }
 
+        Test.stopTest();
+    }
+
+    @IsTest
+    static void testStatusChangesRulesOrderWithoutOrderItems(){
+        TestFactorySObject testFactory = TestFactorySObject.getInstance();
+
+        Test.startTest();
+
+        Order firstOrder = [SELECT Id, Status, FreightType__c, ExternalId__c, Discount__c FROM Order LIMIT 1];
+        Contract firstContract = [SELECT Id, Status FROM Contract LIMIT 1];
+
+        firstContract.Status = 'Activated';
+        update firstContract;
+
+        firstOrder.Status = 'Em aprovação';
         Database.SaveResult orderWeWillTryToUpdate = Database.update(firstOrder, false);
 
         Test.stopTest();
 
-        Assert.isFalse(orderWeWillTryToUpdate.isSuccess(), 'Error: Should not be able to update the order after it was activated');
+        Assert.isFalse(orderWeWillTryToUpdate.isSuccess(), 'Error: Should not be able to update the Order Status without OrderItems');
     }
 
     @IsTest
-    static void testIsERPItem(){
-        User userIntegration = [SELECT Id FROM User WHERE UserName = 'userintegration@api.com' LIMIT 1];
+    static void testStatusChangesRulesWithDiscountGreaterThan20(){
+        TestFactorySObject testFactory = TestFactorySObject.getInstance();
 
-        System.runAs(userIntegration){
-            TestFactorySObject testFactory = TestFactorySObject.getInstance();
+        Test.startTest();
 
-            Id pricebookId = TestFactorySObject.getStandardPricebookId();
-            DistributionCenter__c firstDistributionCenter = [SELECT Id FROM DistributionCenter__c LIMIT 1];
-            PaymentCondition__c firstPaymentCondition = [SELECT Id FROM PaymentCondition__c LIMIT 1];
-            Contract firstContract = [SELECT Id FROM Contract LIMIT 1];
-            Account firstAccount = [SELECT Id FROM Account LIMIT 1];
-            AccountAddress__c firstAccountAddress = [SELECT Id FROM AccountAddress__c LIMIT 1];
+        Id pricebookId = TestFactorySObject.getStandardPricebookId();
+        Product2 firstProduct  = [SELECT Id, ProductionCost__c, ExternalId__c FROM Product2 LIMIT 1];
+        PricebookEntry firstPricebookEntry = [SELECT Id FROM PricebookEntry LIMIT 1];
+        Order firstOrder = [SELECT Id, Status, FreightType__c, ExternalId__c, Discount__c FROM Order LIMIT 1];
+        Contract firstContract = [SELECT Id, Status FROM Contract LIMIT 1];
 
-            Order firstOrder = (Order)testFactory.createSObject(new Order( 
-                Name = 'Test first Order',
-                Status = 'Em aprovação',
-                AccountId =  firstAccount.Id,
-                AccountAddress__c = firstAccountAddress.Id,
-                EffectiveDate = Date.today(),
-                ContractId = firstContract.Id,
-                PaymentCondition__c = firstPaymentCondition.Id,
-                DistributionCenter__c = firstDistributionCenter.Id,
-                Pricebook2Id = pricebookId,
-                FreightType__c = 'CIF'
-            ));
+        OrderItem firstOrderItem = (OrderItem)testFactory.createSObject(new OrderItem(
+            Product2Id = firstProduct.Id,
+            Quantity = 1,
+            UnitPrice = 5,
+            OrderId = firstOrder.Id,
+            PricebookEntryId = firstPricebookEntry.Id
+        ));
 
+        insert firstOrderItem;
+
+        firstContract.Status = 'Activated';
+        update firstContract;
+
+        firstOrder.Status = 'Em aprovação';
+        update firstOrder;
+        firstOrder = [SELECT Id, Status, FreightType__c, ExternalId__c, Discount__c FROM Order LIMIT 1];
+
+        Test.stopTest();
+
+        Assert.isTrue(firstOrder.Discount__c >= 20, 'Error: Discount should be greater than 20');
+    }
+
+    @IsTest
+    static void testStatusUpdatedToAprovado(){
+        TestFactorySObject testFactory = TestFactorySObject.getInstance();
+        MockHttpResponseGenerator mock = new MockHttpResponseGenerator();
+        Test.setMock(HttpCalloutMock.class, mock);
+
+        Test.startTest();
+
+        Id pricebookId = TestFactorySObject.getStandardPricebookId();
+        Product2 firstProduct  = [SELECT Id, ProductionCost__c, ExternalId__c FROM Product2 LIMIT 1];
+        PricebookEntry firstPricebookEntry = [SELECT Id FROM PricebookEntry LIMIT 1];
+        Order firstOrder = [SELECT Id, Status, FreightType__c, ExternalId__c, Discount__c, OrderNumber FROM Order LIMIT 1];
+        Contract firstContract = [SELECT Id, Status FROM Contract LIMIT 1];
+
+        OrderItem firstOrderItem = (OrderItem)testFactory.createSObject(new OrderItem(
+            Product2Id = firstProduct.Id,
+            Quantity = 1,
+            UnitPrice = firstProduct.ProductionCost__c,
+            OrderId = firstOrder.Id,
+            PricebookEntryId = firstPricebookEntry.Id
+        ));
+
+        insert firstOrderItem;
+
+        firstContract.Status = 'Activated';
+        update firstContract;
+        firstOrderItem = [SELECT Id, OrderItemNumber FROM OrderItem LIMIT 1];
+
+        mock.setExternalIds(firstOrder.OrderNumber, firstOrderItem.OrderItemNumber);
+
+        firstOrder.Status = 'Em aprovação';
+        update firstOrder;
+
+        Test.stopTest();
+        
+        firstOrder = [SELECT Id, Status, FreightType__c, ExternalId__c, Discount__c FROM Order LIMIT 1];
+        System.debug('ORDERSTATUS = ' + firstOrder.Status);
+
+        Assert.isTrue(firstOrder.Status == 'Integrado', 'Error: Order Status should be Integrado');
+    }
+
+    global class MockHttpResponseGenerator implements HttpCalloutMock {
+        global String orderExternalId;
+        global String orderItemExternalId;
+        global void setExternalIds(String orderExternalId, String orderItemExternalId){
+            this.orderExternalId = orderExternalId;
+            this.orderItemExternalId = orderItemExternalId;
+        }
+
+        global HttpResponse respond(HttpRequest request) {
+
+            System.assertEquals('callout:OrgDoElias/services//apexrest/upsertOrder', request.getEndpoint());
+            System.assertEquals('POST', request.getMethod());
+
+            HttpResponse response = new HttpResponse();
+            response.setHeader('Content-Type', 'application/json');
+            response.setBody('{"responses": [{"sobjectType": "Order","salesforceId": "801bm00001FBaDVAA1","hasError": false,"externalCode": "'+ orderExternalId +'" ,"errorMessage": null,'
+            + '"items":[{"sobjectType": "OrderItem","salesforceId": "802bm00000EucgrAAB","hasError": false,"externalCode": "'+orderItemExternalId+'","errorMessage": null}]}]}');
+            response.setStatusCode(200);
+            return response;
         }
     }
 }

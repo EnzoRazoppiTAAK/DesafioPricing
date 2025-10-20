@@ -126,7 +126,7 @@ public with sharing class OrderItemTrigger_Test {
         
         Order firstOrder = (Order)testFactory.createSObject(new Order( 
             Name = 'Test first Order',
-            Status = 'Draft',
+            Status = 'Novo',
             AccountId =  firstAccount.Id,
             AccountAddress__c = firstAccountAddress.Id,
             EffectiveDate = Date.today(),

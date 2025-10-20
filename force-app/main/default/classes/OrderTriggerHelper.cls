@@ -6,9 +6,11 @@ public with sharing class OrderTriggerHelper {
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         Map<Id, List<OrderItem>> orderIdToOrderItemMap =  getOrderIdToOrderItemMap(newRecordList);
 
+        System.debug('newRecordList'+ newRecordList);
+
         calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
-        cannotUpdateIntegradoItem(newRecordList);
+        cannotUpdateIntegradoItem(newRecordList, oldRecordMap);
         statusChangesRules(newRecordList, oldRecordMap, orderIdToOrderItemMap);
         sendOrders(newRecordList, orderIdToOrderItemMap);
 
@@ -63,10 +65,12 @@ public with sharing class OrderTriggerHelper {
         }
     }
 
-    public static void cannotUpdateIntegradoItem(List<Order> newRecordList){
+    public static void cannotUpdateIntegradoItem(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         for(Order iOrder: newRecordList){
-            if(iOrder.Status == 'Integrado'){
-                iOrder.addError('Order com status Integrado não pode ser modificada!');
+            if(oldRecordMap.get(iOrder.id).Status == 'Integrado' && iOrder.Status == 'Integrado'){
+                if(UserInfo.getUserName() != 'razoppienzo@brave-shark-nskhtp.com'){
+                    iOrder.addError('Order com status Integrado não pode ser modificada!');
+                }
             }
         }
     }
@@ -76,8 +80,8 @@ public with sharing class OrderTriggerHelper {
         Set<Id> ordersIdsToCallout = new Set<Id>();
 
         for(Order iOrder: newRecordList){
-
             if(oldRecordMap.get(iOrder.Id).Status == 'Novo' && iOrder.Status == 'Em aprovação'){
+  
                 if(!orderIdToOrderItemMap.containsKey(iOrder.Id)) {
                     iOrder.addError('Para mudar um pedido de Novo para Em Aprovação é necessário adicionar um produto');
                 }else{
@@ -92,10 +96,12 @@ public with sharing class OrderTriggerHelper {
                     }
                 }
             }
+            System.debug('order.status'+iOrder.Status);
         }
     }
 
     public static void sendOrders(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
+        System.debug('sendOrders');
         List<Id> ordersIdsToCallout = new List<Id>();
         List<OrderItem> orderItemsToUpdate = new List<OrderItem>();
         for(Order iOrder: newRecordList){
@@ -108,7 +114,13 @@ public with sharing class OrderTriggerHelper {
                 }
             }
         }
-        update orderItemsToUpdate;
+
+        OrderTriggerHandler.disableTrigger();
+        if(!orderItemsToUpdate.isEmpty()){
+            update orderItemsToUpdate;
+        }
+        OrderTriggerHandler.enableTrigger();
+
         if(!ordersIdsToCallout.isEmpty()){
             if(System.IsBatch() == false && System.isFuture() == false){
                 executeCallout(ordersIdsToCallout);

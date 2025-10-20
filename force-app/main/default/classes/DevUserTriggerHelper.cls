@@ -1,5 +1,5 @@
 public with sharing class DevUserTriggerHelper {
-    public static void afterInsert(List<DevUser__c> newRecordList){
+    public static void handleAfterInsertDevUser(List<DevUser__c> newRecordList){
         System.debug('afterInsert');
 
         List<DevUser__c> devUsersToCallout = new List<DevUser__c>();
@@ -17,7 +17,7 @@ public with sharing class DevUserTriggerHelper {
         }
     }
 
-    public static void afterUpdate(List<DevUser__c> newRecordList, Map<Id, DevUser__c> oldRecordMap){
+    public static void handleAfterUpdateDevUser(List<DevUser__c> newRecordList, Map<Id, DevUser__c> oldRecordMap){
         System.debug('afterUpdate');
 
         List<DevUser__c> devUsersToCallout = new List<DevUser__c>();

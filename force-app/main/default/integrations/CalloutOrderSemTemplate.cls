@@ -12,6 +12,7 @@ global with sharing class CalloutOrderSemTemplate {
 
         String responseCallout = sendOrder(ordersToSendList);
 
+        System.debug('ordersToSendList => ' + ordersToSendList);
         Map<String, Order> orderExternalIdToOrderMap = new Map<String, Order>();
         for(Order iOrder: ordersToSendList){
             orderExternalIdToOrderMap.put(iOrder.ExternalId__c, iOrder);
@@ -38,6 +39,7 @@ global with sharing class CalloutOrderSemTemplate {
         }
 
         OrderTriggerHandler.disableTrigger();
+        System.debug('ordersToSendList => ' + ordersToSendList);
         update ordersToSendList;
         OrderTriggerHandler.enableTrigger();
 

@@ -28,7 +28,7 @@ global with sharing class IntegrationInboundSemTemplate {
         List<Order> ordersToUpsertList = new List<Order>();
         List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
         List<OrderItemData> orderItemDataList= new List<OrderItemData>();
-        Map<String, String> externalIdsOrderItemToOrder = new  Map<String, String>();
+        Map<String, List<String>> externalIdsOrderToOrderItem = new  Map<String, List<String>>();
         Map<String, Response> orderResponseMap = new Map<String, Response>();
         Map<String, List<Response>> orderToOrderItemResponseMap = new Map<String, List<Response>>();
         Map<String, List<OrderItem>> orderToIncorrectOrderItemMap = new Map<String, List<OrderItem>>();
@@ -54,7 +54,12 @@ global with sharing class IntegrationInboundSemTemplate {
 
 			if (iOrderData.orderItems != null) {
 				for (OrderItemData iOrderItemData : iOrderData.orderItems) {
-					externalIdsOrderItemToOrder.put(iOrderItemData.itemCode, iOrderData.orderCode);
+                    if(externalIdsOrderToOrderItem.containsKey(iOrderData.orderCode)) {
+						externalIdsOrderToOrderItem.get(iOrderData.orderCode).add(iOrderItemData.itemCode);
+					}else{
+						externalIdsOrderToOrderItem.put(iOrderData.orderCode, new List<String>{iOrderItemData.itemCode});
+                    }
+
 					iOrderItemData.orderExternalId = iOrderData.orderCode;
 				}
 
@@ -72,6 +77,7 @@ global with sharing class IntegrationInboundSemTemplate {
 
         List<Database.UpsertResult> upsertOrders = Database.upsert(ordersToUpsertList, Order.ExternalId__c, false);
         Map<Id, Order> ordersIdstoOrdersMap = new Map<Id, Order>();
+        List<String> orderItemsToDeleteInDatabase = new List<String>();
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];
@@ -81,6 +87,9 @@ global with sharing class IntegrationInboundSemTemplate {
         
             if(upsertOrderResult.isSuccess()){
                 responseOrder = new Response(upsertOrderResult.getId(), order.ExternalId__c, false, null, 'Order');
+                if(externalIdsOrderToOrderItem.containsKey(order.ExternalId__c)) {
+                    orderItemsToDeleteInDatabase.addAll(externalIdsOrderToOrderItem.get(order.ExternalId__c));
+                }
             }else{
                 hasError = true;
                 String error = '';
@@ -112,9 +121,12 @@ global with sharing class IntegrationInboundSemTemplate {
         List<OrderItem> orderItemsInDatabase = new List<OrderItem>([
             SELECT Id, OrderId, Product2Id, UnitPrice, Quantity
             FROM OrderItem
-            WHERE ExternalId__c IN :externalIdsOrderItemToOrder.keySet()
+            WHERE ExternalId__c IN :orderItemsToDeleteInDatabase
         ]);
-        delete orderItemsInDatabase;
+
+        if(!orderItemsInDatabase.isEmpty()){
+            delete orderItemsInDatabase;
+        }
 
         for(OrderItemData iOrderItemData : orderItemDataList){
             orderItemsToUpsertList.add(new OrderItem(
@@ -143,9 +155,6 @@ global with sharing class IntegrationInboundSemTemplate {
                 for(Database.Error iError : upsertOrderItemResult.getErrors()){
                     if(iError.getMessage().contains('not found for field ExternalId__c in entity Product2')){
                         error = 'ProductCode não pode ser null ou produto não encontrado com esse código.';
-                    }
-                    else if(iError.getMessage().contains('not found for field ExternalId__c in entity Product2')){
-                        error = 'ProductCode não pode ser null ou produto não encontrado com esse código.';
                     }else{
                         error += iError.getMessage() + ' ';
                     }
@@ -155,7 +164,7 @@ global with sharing class IntegrationInboundSemTemplate {
                 }else{
                     orderToIncorrectOrderItemMap.put(orderItem.Order.ExternalId__c, new List<OrderItem>{orderItem});
                 }
-                
+
                 responseOrderItem = new Response(null, orderItem.ExternalId__c, true, error, 'OrderItem');
             }
 
@@ -195,23 +204,23 @@ global with sharing class IntegrationInboundSemTemplate {
             }
 
             if(orderToIncorrectOrderItemMap.containsKey(order.ExternalId__c)){
-                ordersTodeleteList.add(order);
                 if(orderResponseMap.get(order.ExternalId__c).hasError == false){
+                    ordersTodeleteList.add(order);
                     orderResponseMap.get(order.ExternalId__c).hasError = true;
                     orderResponseMap.get(order.ExternalId__c).errorMessage = 'Order não adcionado por erro nem um ou mais OrderItems.';
                 }
 
                 for(Response iOrderItemResponse : orderToOrderItemResponseMap.get(order.ExternalId__c)){
-                    if(iOrderItemResponse.hasError == false){
-                        iOrderItemResponse.hasError = true;
-                        iOrderItemResponse.salesforceId = null;
-                        iOrderItemResponse.errorMessage = 'OrderItem não adcionado por erro em algum OrderItem da sua mesma Order.';
-                    }
+                    iOrderItemResponse.hasError = true;
+                    iOrderItemResponse.salesforceId = null;
+                    iOrderItemResponse.errorMessage = 'OrderItem não adcionado por erro em algum OrderItem da sua mesma Order.';
                 }
             }
         }
 
-        delete ordersTodeleteList;
+        if(!ordersTodeleteList.isEmpty()){
+            delete ordersTodeleteList;
+        }
         
         ResponseInboundOrders responseInboundOrders = new ResponseInboundOrders(responseList);
 

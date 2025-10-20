@@ -305,6 +305,7 @@ public with sharing class OrderItemTriggerHelper {
 
     public static void calculateFinalPrice(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
+            System.debug('NEWRECORDLIST '+newRecordList);
             iOrderItem.FinalPrice__c =(iOrderItem.UnitPrice + (iOrderItem.FreightValue__c/100)) * (1+  (iOrderItem.MarginPercentage__c/100)) * (1+ (iOrderItem.TaxPercentage__c/100));
         }
     }
