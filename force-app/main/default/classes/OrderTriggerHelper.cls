@@ -6,14 +6,15 @@ public with sharing class OrderTriggerHelper {
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         Map<Id, List<OrderItem>> orderIdToOrderItemMap =  getOrderIdToOrderItemMap(newRecordList);
 
-        System.debug('newRecordList'+ newRecordList);
-
         calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         cannotUpdateIntegradoItem(newRecordList, oldRecordMap);
         statusChangesRules(newRecordList, oldRecordMap, orderIdToOrderItemMap);
-        sendOrders(newRecordList, orderIdToOrderItemMap);
+        putExternalId(newRecordList, orderIdToOrderItemMap);
+    }
 
+    public static void handleAfterUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
+        sendOrders(newRecordList);
     }
 
     public static void insertStatusBySalesforceShouldBeNovo(List<Order> newRecordList){
@@ -99,14 +100,11 @@ public with sharing class OrderTriggerHelper {
             System.debug('order.status'+iOrder.Status);
         }
     }
-
-    public static void sendOrders(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
-        System.debug('sendOrders');
-        List<Id> ordersIdsToCallout = new List<Id>();
+    public static void putExternalId(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
+        System.debug('puExternalId');
         List<OrderItem> orderItemsToUpdate = new List<OrderItem>();
         for(Order iOrder: newRecordList){
             if(iOrder.Status == 'Aprovado'){
-                ordersIdsToCallout.add(iOrder.Id);
                 iOrder.ExternalId__c = iOrder.OrderNumber;
                 for(OrderItem iOrderItem: orderIdToOrderItemMap.get(iOrder.Id)){
                     iOrderItem.ExternalId__c = iOrderItem.OrderItemNumber;
@@ -120,18 +118,20 @@ public with sharing class OrderTriggerHelper {
             update orderItemsToUpdate;
         }
         OrderTriggerHandler.enableTrigger();
-
-        if(!ordersIdsToCallout.isEmpty()){
-            if(System.IsBatch() == false && System.isFuture() == false){
-                executeCallout(ordersIdsToCallout);
-            }
-        }
     }
 
-    @Future(callout=true)
-    public static void executeCallout(List<Id> OrdersIds){
-
-        String responseCallout = CalloutOrderSemTemplate.calloutOrders(OrdersIds);
-        System.debug('Resposta do Elias: '+ responseCallout);
+    public static void sendOrders(List<Order> newRecordList){
+        System.debug('sendOrders');
+        List<Id> ordersIdsToCallout = new List<Id>();
+        for(Order iOrder: newRecordList){
+            if(iOrder.Status == 'Aprovado'){
+                ordersIdsToCallout.add(iOrder.Id);
+            }
+        }
+        if(!ordersIdsToCallout.isEmpty()){
+            if(System.IsBatch() == false && System.isFuture() == false){
+                CalloutOrderSemTemplate.calloutOrders(ordersIdsToCallout);
+            }
+        }
     }
 }

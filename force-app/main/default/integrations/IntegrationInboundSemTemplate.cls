@@ -2,42 +2,56 @@
 global with sharing class IntegrationInboundSemTemplate {
 
     @HttpPost
-    global static ResponseInboundOrders upsertOrder() {
-        RestRequest context = RestContext.request; 
-        RequestOrders requestOrders;
+    global static CalloutResponse.CalloutResponseList upsertOrder() {
+        RestRequest httpContext = RestContext.request; 
+        OrderDTO orderDTO;
 
         try{
-            requestOrders = (RequestOrders) JSON.deserialize(context.requestBody.toString(), RequestOrders.class);
+            orderDTO = (OrderDTO) JSON.deserialize(httpContext.requestBody.toString(), OrderDTO.class);
+
         }catch(Exception e){
+
             RestContext.response.statusCode = 400;
             String error;
-            List<Response> responseList;
+            List<CalloutResponse> responseList = new List<CalloutResponse>();
 
             if(e.getMessage().contains('either a decimal digit number')) {
                 error = 'Quantity, UnitPrice e ListPrice devem receber números.';
-                responseList = new List<Response>{new Response(null, null, true, error, 'OrderItem')};
+                responseList.add(
+                    CalloutResponse.builder()
+                    .setHasError(true)
+                    .setErrorMessage(error)
+                    .setSObjectType('OrderItem')
+                    .build()
+                );
 
             }else{
                 error = 'JSON mal formatado.';
-                responseList = new List<Response>{new Response(null, null, true, error, '')};
-
+                responseList.add(
+                    CalloutResponse.builder()
+                    .setHasError(true)
+                    .setErrorMessage(error)
+                    .build()
+                );
             }
-            return new ResponseInboundOrders(responseList);
+            return new CalloutResponse.CalloutResponseList(responseList);
         }
 
         List<Order> ordersToUpsertList = new List<Order>();
         List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
-        List<OrderItemData> orderItemDataList= new List<OrderItemData>();
+        List<OrderDTO.OrderItemData> orderItemDataList= new List<OrderDTO.OrderItemData>();
+
         Map<String, List<String>> externalIdsOrderToOrderItem = new  Map<String, List<String>>();
-        Map<String, Response> orderResponseMap = new Map<String, Response>();
-        Map<String, List<Response>> orderToOrderItemResponseMap = new Map<String, List<Response>>();
+        Map<String, CalloutResponse> orderResponseMap = new Map<String, CalloutResponse>();
+        Map<String, List<CalloutResponse>> orderToOrderItemResponseMap = new Map<String, List<CalloutResponse>>();
         Map<String, List<OrderItem>> orderToIncorrectOrderItemMap = new Map<String, List<OrderItem>>();
-        List<Response> responseList = new List<Response>();
+        List<CalloutResponse> responseList = new List<CalloutResponse>();
+        
         Boolean hasError = false;
         Boolean hasDeleted;
         String orderExternalIds = '';
 
-        for(OrderData iOrderData : requestOrders.request){
+        for(OrderDTO.OrderData iOrderData : orderDTO.request){
 
             ordersToUpsertList.add(new Order(
 				ExternalId__c			= iOrderData.orderCode,
@@ -53,7 +67,7 @@ global with sharing class IntegrationInboundSemTemplate {
             ));
 
 			if (iOrderData.orderItems != null) {
-				for (OrderItemData iOrderItemData : iOrderData.orderItems) {
+				for (OrderDTO.OrderItemData iOrderItemData : iOrderData.orderItems) {
                     if(externalIdsOrderToOrderItem.containsKey(iOrderData.orderCode)) {
 						externalIdsOrderToOrderItem.get(iOrderData.orderCode).add(iOrderItemData.itemCode);
 					}else{
@@ -83,10 +97,16 @@ global with sharing class IntegrationInboundSemTemplate {
             Order order = ordersToUpsertList[i];
 			Database.UpsertResult upsertOrderResult = upsertOrders[i];
 
-            Response responseOrder;
+            CalloutResponse responseOrder;
         
             if(upsertOrderResult.isSuccess()){
-                responseOrder = new Response(upsertOrderResult.getId(), order.ExternalId__c, false, null, 'Order');
+                responseOrder = CalloutResponse.builder()
+                    .setSalesforceId(upsertOrderResult.getId())
+                    .setExternalCode(order.ExternalId__c)
+                    .setHasError(false)
+                    .setSObjectType('Order')
+                    .build();
+
                 if(externalIdsOrderToOrderItem.containsKey(order.ExternalId__c)) {
                     orderItemsToDeleteInDatabase.addAll(externalIdsOrderToOrderItem.get(order.ExternalId__c));
                 }
@@ -113,7 +133,12 @@ global with sharing class IntegrationInboundSemTemplate {
                         error += iError.getMessage() + ' ';
                     }
                 }
-                responseOrder = new Response(null, order.ExternalId__c, true, error, 'Order');
+                responseOrder = CalloutResponse.builder()
+                    .setExternalCode(order.ExternalId__c)
+                    .setHasError(true)
+                    .setErrorMessage(error)
+                    .setSObjectType('Order')
+                    .build();
             }
             orderResponseMap.put(order.ExternalId__c, responseOrder);
             responseList.add(responseOrder);
@@ -129,7 +154,7 @@ global with sharing class IntegrationInboundSemTemplate {
             delete orderItemsInDatabase;
         }
 
-        for(OrderItemData iOrderItemData : orderItemDataList){
+        for(OrderDTO.OrderItemData iOrderItemData : orderItemDataList){
             orderItemsToUpsertList.add(new OrderItem(
                 Order			= new Order(ExternalId__c = iOrderItemData.orderExternalId),
                 Product2        = new Product2(ExternalId__c = iOrderItemData.productCode),
@@ -147,10 +172,16 @@ global with sharing class IntegrationInboundSemTemplate {
             OrderItem orderItem = orderItemsToUpsertList[i];
 			Database.UpsertResult upsertOrderItemResult = upsertOrderItems[i];
 
-            Response responseOrderItem;
+            CalloutResponse responseOrderItem;
 
             if(upsertOrderItemResult.isSuccess()){
-                responseOrderItem = new Response(upsertOrderItemResult.getId(), orderItem.ExternalId__c, false, null, 'OrderItem');
+                responseOrderItem = CalloutResponse.builder()
+                    .setSalesforceId(upsertOrderItemResult.getId())
+                    .setExternalCode(orderItem.ExternalId__c)
+                    .setHasError(false)
+                    .setSObjectType('OrderItem')
+                    .build();
+
             }else{
                 String error = '';
                 for(Database.Error iError : upsertOrderItemResult.getErrors()){
@@ -166,13 +197,18 @@ global with sharing class IntegrationInboundSemTemplate {
                     orderToIncorrectOrderItemMap.put(orderItem.Order.ExternalId__c, new List<OrderItem>{orderItem});
                 }
 
-                responseOrderItem = new Response(null, orderItem.ExternalId__c, true, error, 'OrderItem');
+                responseOrderItem = CalloutResponse.builder()
+                    .setExternalCode(orderItem.ExternalId__c)
+                    .setHasError(true)
+                    .setErrorMessage(error)
+                    .setSObjectType('OrderItem')
+                    .build();
             }
 
             if(orderToOrderItemResponseMap.containsKey(orderItem.Order.ExternalId__c)) {
                 orderToOrderItemResponseMap.get(orderItem.Order.ExternalId__c).add(responseOrderItem);
             }else{
-                orderToOrderItemResponseMap.put(orderItem.Order.ExternalId__c, new List<Response>{responseOrderItem});
+                orderToOrderItemResponseMap.put(orderItem.Order.ExternalId__c, new List<CalloutResponse>{responseOrderItem});
             }
 
             responseList.add(responseOrderItem);
@@ -208,13 +244,13 @@ global with sharing class IntegrationInboundSemTemplate {
                 if(orderResponseMap.get(order.ExternalId__c).hasError == false){
                     ordersTodeleteList.add(order);
                     orderResponseMap.get(order.ExternalId__c).hasError = true;
-                    orderResponseMap.get(order.ExternalId__c).errorMessage = 'Order não adcionado por erro nem um ou mais OrderItems.';
+                    orderResponseMap.get(order.ExternalId__c).errorMessage = 'Order não adicionado e se já existia no banco de dados, foi deletado, por erro nem um ou mais OrderItems.';
                 }
 
-                for(Response iOrderItemResponse : orderToOrderItemResponseMap.get(order.ExternalId__c)){
+                for(CalloutResponse iOrderItemResponse : orderToOrderItemResponseMap.get(order.ExternalId__c)){
                     iOrderItemResponse.hasError = true;
                     iOrderItemResponse.salesforceId = null;
-                    iOrderItemResponse.errorMessage = 'OrderItem não adcionado por erro em algum OrderItem da sua mesma Order.';
+                    iOrderItemResponse.errorMessage = 'OrderItem não adicionado por erro em algum OrderItem da sua mesma Order.';
                 }
             }
         }
@@ -222,21 +258,30 @@ global with sharing class IntegrationInboundSemTemplate {
         if(!ordersTodeleteList.isEmpty()){
             delete ordersTodeleteList;
         }
-        
-        ResponseInboundOrders responseInboundOrders = new ResponseInboundOrders(responseList);
 
-        String endpoint = 'https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder';
+        CalloutResponse.CalloutResponseList calloutResponseList = new CalloutResponse.CalloutResponseList(responseList);
 
         OrderTriggerHandler.disableTrigger();
-        String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'INBOUND', JSON.serialize(RequestOrders), 
-        JSON.serialize(responseInboundOrders), endpoint, hasError, hasDeleted);
+
+        String integrationLogId = IntegrationLog.createLog(IntegrationLogBuilder.builder()
+            .setIntegrationName('Order')
+            .setExternalIdList(orderExternalIds)
+            .setRecordTypeName('INBOUND')
+            .setPayloadIN(JSON.serialize(orderDTO))
+            .setPayloadOUT(JSON.serialize(calloutResponseList))
+            .setEndpoint('https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder')
+            .setHasAnyErrors(hasError)
+            .setHasDeleted(hasDeleted)
+            .build()
+        );
+
         IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
                 
 		RestContext.response.statusCode = 201;
 
-        return responseInboundOrders;
+        return calloutResponseList;
     }
 
     public static Boolean deleteOrderItemNotReceived(List<Order> ordersToUpsertList, List<OrderItem> orderItemsToUpsertList){
@@ -265,63 +310,6 @@ global with sharing class IntegrationInboundSemTemplate {
             return true;
         }else{
             return false;
-        }
-    }
-
-    global class RequestOrders{
-        public List<OrderData> request;
-
-        public RequestOrders(List<OrderData> request){
-            this.request = request;
-        }
-    }
-
-    global class OrderData{
-		public String accountCode;
-        public String addressCode;
-        public String paymentCode;
-        public Date effectiveDate;
-        public String freightType;
-        public String distributionCenterCode;
-        public String orderCode;
-        public Date deliveryDate;
-        public String status;
-        public String obs;
-
-		public List<OrderItemData> orderItems;
-    }
-
-    global class OrderItemData{
-        public String orderExternalId;
-		public String itemCode;
-		public Decimal quantity;
-		public Decimal unitPrice;
-		public Decimal listPrice;
-		public String productCode;
-		public Boolean totvsItem;
-    }
-    
-    global virtual class Response{
-        public String salesforceId;
-        public String externalCode;
-        public Boolean hasError;
-        public String errorMessage;
-        public String sobjectType;
-
-        public Response(String salesforceId, String externalCode, Boolean hasError, String errorMessage, String sobjectType){
-            this.salesforceId = salesforceId;
-            this.externalCode = externalCode;
-            this.hasError = hasError;
-            this.errorMessage = errorMessage;
-            this.sobjectType = sobjectType;
-        }
-    }
-
-    global class ResponseInboundOrders{
-        public List<Response> response;
-
-        public ResponseInboundOrders(List<Response> response){
-            this.response = response;
         }
     }
 }

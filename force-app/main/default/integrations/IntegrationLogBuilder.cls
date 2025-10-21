@@ -1,12 +1,13 @@
 public with sharing class IntegrationLogBuilder {
-    private String integrationName;
-	private String externalIdList;
-	private String recordTypeName;
-	private String payloadIN;
-	private String payloadOUT;
-	private String endpoint;
-	private Boolean hasAnyErrors;
-	private Boolean hasDeleted;    
+
+    public String integrationName;
+	public String externalIdList;
+	public String recordTypeName;
+	public String payloadIN;
+	public String payloadOUT;
+	public String endpoint;
+	public Boolean hasAnyErrors;
+	public Boolean hasDeleted;    
 
 	private IntegrationLogBuilder(Builder builder){
 		this.integrationName = builder.integrationName;
@@ -18,6 +19,7 @@ public with sharing class IntegrationLogBuilder {
 		this.hasAnyErrors = builder.hasAnyErrors;
 		this.hasDeleted = builder.hasDeleted;
 	}
+    
 	public static Builder builder(){
 		return new Builder();
 	}

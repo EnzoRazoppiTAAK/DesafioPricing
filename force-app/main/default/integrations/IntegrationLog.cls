@@ -1,31 +1,31 @@
 public with sharing class IntegrationLog {
 
+	public static Id createLog(IntegrationLogBuilder integrationLogBuilder){
 
-	public static Id createLog(String integrationName, String externalIdList, String recordTypeName, String payloadIN, String payloadOUT,
-								String endpoint, Boolean hasAnyErrors, Boolean hasDeleted){
 		System.debug('');
 		// Se os dados forem maiores que 100.000 TRUE, se não FALSE
-		Boolean attachmentIN = (payloadIN.length() > 130000);
-		Boolean attachmentOUT = (payloadOUT.length() > 130000);
+		Boolean attachmentIN = (integrationLogBuilder.payloadIN.length() > 130000);
+		Boolean attachmentOUT = (integrationLogBuilder.payloadOUT.length() > 130000);
 		Datetime datetimeNow = System.now(); // Data Atual
 		// Pega Id do log de integração (IN ou OUT)
-		Id recordTypeId = Schema.SObjectType.IntegrationLog__c.getRecordTypeInfosByDeveloperName().containsKey(recordTypeName) ?
-							Schema.SObjectType.IntegrationLog__c.getRecordTypeInfosByName().get(recordTypeName).getRecordTypeId()
+		Id recordTypeId = Schema.SObjectType.IntegrationLog__c.getRecordTypeInfosByDeveloperName().containsKey(integrationLogBuilder.recordTypeName) ?
+							Schema.SObjectType.IntegrationLog__c.getRecordTypeInfosByName().get(integrationLogBuilder.recordTypeName).getRecordTypeId()
 							: null;
 
 		if (recordTypeId == null) System.debug('Falha ao pegar o recordTypeId do log de integração => ' + recordTypeId);
 
 		IntegrationLog__c log = createIntegrationLogRecord(
-			integrationName, externalIdList, recordTypeName, attachmentIN, attachmentOUT, payloadIN, payloadOUT,
-			endpoint, hasAnyErrors, datetimeNow, hasDeleted
+			integrationLogBuilder.integrationName, integrationLogBuilder.externalIdList, integrationLogBuilder.recordTypeName, 
+			attachmentIN, attachmentOUT, integrationLogBuilder.payloadIN, integrationLogBuilder.payloadOUT, integrationLogBuilder.endpoint, 
+			integrationLogBuilder.hasAnyErrors, datetimeNow, integrationLogBuilder.hasDeleted
 		);
 
 		try { // Insere o log de integração e cria anexo se for necessario
 			insert log;
 
 			// Confere se é necessario criar anexo
-			if (attachmentIN) createAttachment(log.Id, integrationName, 'IN', log.Name, String.valueOf(datetimeNow), payloadIN);
-			if (attachmentOUT) createAttachment(log.Id, integrationName, 'OUT', log.Name, String.valueOf(datetimeNow), payloadOUT);
+			if (attachmentIN) createAttachment(log.Id, integrationLogBuilder.integrationName, 'IN', log.Name, String.valueOf(datetimeNow), integrationLogBuilder.payloadIN);
+			if (attachmentOUT) createAttachment(log.Id, integrationLogBuilder.integrationName, 'OUT', log.Name, String.valueOf(datetimeNow), integrationLogBuilder.payloadOUT);
 		}
 		catch (Exception error) {
 			System.debug('EXCEPTION ON LOG - Please review parameters - ' + error.getMessage() + ' - ' + error.getStackTraceString());

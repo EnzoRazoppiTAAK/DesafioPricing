@@ -1,6 +1,7 @@
 global with sharing class CalloutOrderSemTemplate {
 
-    global static String calloutOrders(List<Id> OrdersIds){
+    @Future(callout=true)
+    global static void calloutOrders(List<Id> OrdersIds){
     
         List<Order> ordersToSendList = [SELECT Id, ExternalId__c, OrderNumber, Account.ExternalId__c, AccountAddress__r.ExternalId__c, PaymentCondition__r.ExternalId__c, 
 		EffectiveDate, FreightType__c, DistributionCenter__r.ExternalId__c, deliveryDate__c, Status, Observation__c, 
@@ -10,7 +11,8 @@ global with sharing class CalloutOrderSemTemplate {
 		];
     
 
-        String responseCallout = sendOrder(ordersToSendList);
+        String responseCallout = executeCallout(ordersToSendList);
+        System.debug('Resposta do Elias: '+ responseCallout);
 
         System.debug('ordersToSendList => ' + ordersToSendList);
         Map<String, Order> orderExternalIdToOrderMap = new Map<String, Order>();
@@ -42,17 +44,15 @@ global with sharing class CalloutOrderSemTemplate {
         System.debug('ordersToSendList => ' + ordersToSendList);
         update ordersToSendList;
         OrderTriggerHandler.enableTrigger();
-
-        return responseCallout;
     }
 
-    global static String sendOrder(List<Order> ordersToSendList){
+    global static String executeCallout(List<Order> ordersToSendList){
 
         String orderExternalIds = '';
 
-        List<OrderDataParameters> orderDataParametersList = new List<OrderDataParameters>();
+        List<OrderDTO.OrderData> orderDataList = new List<OrderDTO.OrderData>();
         for(Order iOrder: ordersToSendList){
-            orderDataParametersList.add(new OrderDataParameters(iOrder));
+            orderDataList.add(new OrderDTO.OrderData(iOrder));
             if(orderExternalIds == ''){
                 orderExternalIds += iOrder.ExternalId__c;
             }else{
@@ -60,10 +60,10 @@ global with sharing class CalloutOrderSemTemplate {
             }
         }
 
-        OrdersToSerialize ordersToSerialize = new OrdersToSerialize(orderDataParametersList);
+        OrderDTO orderDTO = new OrderDTO(orderDataList);
 
         String endpoint = 'callout:OrgDoElias/services//apexrest/upsertOrder';
-        String orderJson = JSON.serialize(ordersToSerialize);
+        String orderJson = JSON.serialize(orderDTO);
 
         System.debug('EXECUTING CALLOUT');
         System.debug('CALLOUT JSON: '+ orderJson);
@@ -75,82 +75,41 @@ global with sharing class CalloutOrderSemTemplate {
         request.setHeader('Content-Type', 'application/json');
 
         HttpResponse response;
+
+        String integrationLogId;
+        IntegrationLogBuilder.Builder logBuilder = IntegrationLogBuilder.builder()
+                .setIntegrationName('Order')
+                .setExternalIdList(orderExternalIds)
+                .setRecordTypeName('OUTBOUND')
+                .setEndpoint(endpoint)
+                .setPayloadIN(JSON.serialize(orderJson));
         try{
             response = new Http().send(request);
 
             System.debug('RESPONSE: '+ response.getBody());
 
-            String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', JSON.serialize(orderJson), 
-            JSON.serialize(response.getBody()), endpoint, false, false);
+            integrationLogId = IntegrationLog.createLog(logBuilder
+                .setPayloadOUT(JSON.serialize(response.getBody()))
+                .setHasAnyErrors(false)
+                .setHasDeleted(false)
+                .build()
+            );
+
             IntegrationLog.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
 
             return response.getBody();
             
         }catch(Exception e){
-            String integrationLogId = IntegrationLog.createLog('Order', orderExternalIds, 'OUTBOUND', JSON.serialize(orderJson), 
-            JSON.serialize(e.getMessage()), endpoint, true, false);
+
+            integrationLogId = IntegrationLog.createLog(logBuilder
+                .setPayloadOUT(JSON.serialize(e.getMessage()))
+                .setHasAnyErrors(true)
+                .setHasDeleted(false)
+                .build()
+            );
+
             IntegrationLog.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
             return e.getMessage();
-        }
-    }
-
-    global class OrdersToSerialize{
-        List<OrderDataParameters> request;
-
-        public OrdersToSerialize(List<OrderDataParameters> orderDataParametersList){
-            this.request = orderDataParametersList;
-        }
-    }
-
-    global class OrderDataParameters{
-        public String orderCode;
-        public String accountCode;
-        public String addressCode;
-        public String paymentCode;
-        public Date effectiveDate;
-        public String freightType;
-        public String distributionCenterCode;
-        public Date deliveryDate;
-        public String status;
-        public String obs;
-
-        public List<OrderItemDataParameters> orderItems;
-
-        public OrderDataParameters(Order order){
-            this.orderCode = order.ExternalId__c;
-            this.accountCode = order.Account.ExternalId__c;
-            this.addressCode = order.AccountAddress__r.ExternalId__c;
-            this.paymentCode = order.PaymentCondition__r.ExternalId__c;
-            this.distributionCenterCode = order.DistributionCenter__r.ExternalId__c;
-            this.effectiveDate = order.EffectiveDate;
-            this.freightType = order.FreightType__c;
-            this.deliveryDate = order.deliveryDate__c;
-            this.status = order.Status;
-            this.obs = order.Observation__c;
-
-            this.orderItems = new List<OrderItemDataParameters>();
-
-            for (OrderItem iOrderItem : order.OrderItems) {
-                orderItems.add(new OrderItemDataParameters(iOrderItem));
-            }
-        }
-    }
-
-    global class OrderItemDataParameters{
-        public String productCode;
-        public String itemCode;
-        public Boolean totvsItem;
-        public Decimal unitPrice;
-        public Decimal listPrice;
-        public Decimal quantity;
-
-        public OrderItemDataParameters(OrderItem orderItem){
-            this.productCode = orderItem.Product2.ExternalId__c;
-            this.itemCode = orderItem.ExternalId__c;
-            this.totvsItem = orderItem.TotvsItem__c;
-            this.unitPrice = orderItem.UnitPrice;
-            this.listPrice = orderItem.ListPrice;
-            this.quantity = orderItem.Quantity;
         }
     }
 }
