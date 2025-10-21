@@ -1,4 +1,6 @@
 public with sharing class IntegrationLog {
+
+
 	public static Id createLog(String integrationName, String externalIdList, String recordTypeName, String payloadIN, String payloadOUT,
 								String endpoint, Boolean hasAnyErrors, Boolean hasDeleted){
 		System.debug('');

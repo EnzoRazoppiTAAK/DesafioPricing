@@ -106,9 +106,10 @@ global with sharing class IntegrationInboundSemTemplate {
                     else if(iError.getMessage().contains('not found for field ExternalId__c in entity PaymentCondition__c')) {
                         error = 'AddressCode não pode ser null ou Endereço de Conta não encontrado com esse código.';
                     }
-                    else if(order.FreightType__c != 'FOB' && order.FreightType__c != 'CIF') {
-                        error = 'FreightType inválido.';
-                    }else{
+                    else if(iError.getMessage().contains('Tipo de Frete: bad value for restricted picklist field:')) {
+                        error = 'Tipo de frete inválido.';
+                    }
+                    else{
                         error += iError.getMessage() + ' ';
                     }
                 }
@@ -169,7 +170,7 @@ global with sharing class IntegrationInboundSemTemplate {
             }
 
             if(orderToOrderItemResponseMap.containsKey(orderItem.Order.ExternalId__c)) {
-                    orderToOrderItemResponseMap.get(orderItem.Order.ExternalId__c).add(responseOrderItem);
+                orderToOrderItemResponseMap.get(orderItem.Order.ExternalId__c).add(responseOrderItem);
             }else{
                 orderToOrderItemResponseMap.put(orderItem.Order.ExternalId__c, new List<Response>{responseOrderItem});
             }
