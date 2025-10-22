@@ -274,7 +274,7 @@ global with sharing class IntegrationInboundSemTemplate {
             .setHasDeleted(hasDeleted)
             .build();
 
-        IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
+        IntegrationLogBuilder.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
                 

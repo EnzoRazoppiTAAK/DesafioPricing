@@ -100,7 +100,7 @@ global with sharing class CalloutOrderSemTemplate {
                 .setHasDeleted(false)
                 .build();
 
-            IntegrationLog.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
+            IntegrationLogBuilder.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
 
             return response.getBody();
             
@@ -112,7 +112,7 @@ global with sharing class CalloutOrderSemTemplate {
                 .setHasDeleted(false)
                 .build();
 
-            IntegrationLog.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
+            IntegrationLogBuilder.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
             return e.getMessage();
         }
     }
