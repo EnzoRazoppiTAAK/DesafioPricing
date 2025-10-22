@@ -25,13 +25,19 @@ global with sharing class CalloutOrderSemTemplate {
                 iOrder.Status = 'Erro de Integração';
             }
         }else{
-            Map<String, Object> responseFields = (Map<String, Object>) JSON.deserializeUntyped(responseCallout);
-            List<Object> responseList = (List<Object>) responseFields.get('responses');
+            Map<String, Object> deserializeResponsesList = (Map<String, Object>) JSON.deserializeUntyped(responseCallout);
+            List<Object> responseList = (List<Object>) deserializeResponsesList.get('responses');
             System.debug('responseList => ' + responseList);
 
             for(Object iResponse: responseList){
                 Map<String, Object> responseObject = (Map<String, Object>) iResponse;
 
+                if(responseObject.get('externalCode') == null){
+                    for(Order iOrder: ordersToSendList){
+                        iOrder.Status = 'Erro de Integração';
+                    }
+                }
+                
                 if(responseObject.get('hasError') == false){
                     orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Integrado';
                 }else{
@@ -77,7 +83,7 @@ global with sharing class CalloutOrderSemTemplate {
         HttpResponse response;
 
         String integrationLogId;
-        IntegrationLogBuilder.Builder logBuilder = IntegrationLogBuilder.builder()
+        IntegrationLogBuilder logBuilder = IntegrationLogBuilder.builder()
                 .setIntegrationName('Order')
                 .setExternalIdList(orderExternalIds)
                 .setRecordTypeName('OUTBOUND')
@@ -88,12 +94,11 @@ global with sharing class CalloutOrderSemTemplate {
 
             System.debug('RESPONSE: '+ response.getBody());
 
-            integrationLogId = IntegrationLog.createLog(logBuilder
+            integrationLogId = logBuilder
                 .setPayloadOUT(JSON.serialize(response.getBody()))
                 .setHasAnyErrors(false)
                 .setHasDeleted(false)
-                .build()
-            );
+                .build();
 
             IntegrationLog.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
 
@@ -101,12 +106,11 @@ global with sharing class CalloutOrderSemTemplate {
             
         }catch(Exception e){
 
-            integrationLogId = IntegrationLog.createLog(logBuilder
+            integrationLogId = logBuilder
                 .setPayloadOUT(JSON.serialize(e.getMessage()))
                 .setHasAnyErrors(true)
                 .setHasDeleted(false)
-                .build()
-            );
+                .build();
 
             IntegrationLog.updateOrderWithIntegrationLogId(ordersToSendList, integrationLogId, 'OUT');
             return e.getMessage();

@@ -263,7 +263,7 @@ global with sharing class IntegrationInboundSemTemplate {
 
         OrderTriggerHandler.disableTrigger();
 
-        String integrationLogId = IntegrationLog.createLog(IntegrationLogBuilder.builder()
+        String integrationLogId = IntegrationLogBuilder.builder()
             .setIntegrationName('Order')
             .setExternalIdList(orderExternalIds)
             .setRecordTypeName('INBOUND')
@@ -272,8 +272,7 @@ global with sharing class IntegrationInboundSemTemplate {
             .setEndpoint('https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder')
             .setHasAnyErrors(hasError)
             .setHasDeleted(hasDeleted)
-            .build()
-        );
+            .build();
 
         IntegrationLog.updateOrderWithIntegrationLogId(ordersToUpsertList, integrationLogId, 'IN');
         
