@@ -130,7 +130,7 @@ public with sharing class OrderTriggerHelper {
         }
         if(!ordersIdsToCallout.isEmpty()){
             if(System.IsBatch() == false && System.isFuture() == false){
-                CalloutOrderSemTemplate.calloutOrders(ordersIdsToCallout);
+                CalloutOrder_Service.calloutOrders(ordersIdsToCallout, 'Elias');
             }
         }
     }
