@@ -1,41 +1,6 @@
-@RestResource(urlMapping='/upsertOrder/*')
-global with sharing class IntegrationInboundSemTemplate {
-
-    @HttpPost
-    global static CalloutResponse.CalloutResponseList upsertOrder() {
-        RestRequest httpContext = RestContext.request; 
-        OrderDTO orderDTO;
-
-        try{
-            orderDTO = (OrderDTO) JSON.deserialize(httpContext.requestBody.toString(), OrderDTO.class);
-
-        }catch(Exception e){
-
-            RestContext.response.statusCode = 400;
-            String error;
-            List<CalloutResponse> responseList = new List<CalloutResponse>();
-
-            if(e.getMessage().contains('either a decimal digit number')) {
-                error = 'Quantity, UnitPrice e ListPrice devem receber números.';
-                responseList.add(
-                    CalloutResponse.builder()
-                    .setHasError(true)
-                    .setErrorMessage(error)
-                    .setSObjectType('OrderItem')
-                    .build()
-                );
-
-            }else{
-                error = 'JSON mal formatado.';
-                responseList.add(
-                    CalloutResponse.builder()
-                    .setHasError(true)
-                    .setErrorMessage(error)
-                    .build()
-                );
-            }
-            return new CalloutResponse.CalloutResponseList(responseList);
-        }
+global with sharing class InboundOrder_Service {
+    
+    global static CalloutResponse.CalloutResponseList upsertOrder(OrderDTO orderDTO){
 
         List<Order> ordersToUpsertList = new List<Order>();
         List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
@@ -126,7 +91,8 @@ global with sharing class IntegrationInboundSemTemplate {
                     else if(iError.getMessage().contains('not found for field ExternalId__c in entity PaymentCondition__c')) {
                         error = 'AddressCode não pode ser null ou Endereço de Conta não encontrado com esse código.';
                     }
-                    else if(iError.getMessage().contains('Tipo de Frete: bad value for restricted picklist field:')) {
+                    else if(iError.getMessage().contains('Tipo de Frete: bad value for restricted picklist field:') 
+                    || iError.getMessage().contains('Required fields are missing: [FreightType__c]')) {
                         error = 'Tipo de frete inválido.';
                     }
                     else{
@@ -277,13 +243,12 @@ global with sharing class IntegrationInboundSemTemplate {
         putIntegrationLogIdInSomeObject.updateOrder(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
-                
-		RestContext.response.statusCode = 201;
 
         return calloutResponseList;
     }
 
-    public static Boolean deleteOrderItemNotReceived(List<Order> ordersToUpsertList, List<OrderItem> orderItemsToUpsertList){
+    global static Boolean deleteOrderItemNotReceived(List<Order> ordersToUpsertList, List<OrderItem> orderItemsToUpsertList){
+        
         Set<Id> orderIds = new Set<Id>();
         Set<Id> orderItemIds = new Set<Id>();
         List<OrderItem> orderItemsToUpdate = new List<OrderItem>();
@@ -311,4 +276,5 @@ global with sharing class IntegrationInboundSemTemplate {
             return false;
         }
     }
+
 }
