@@ -2,9 +2,7 @@ global with sharing class InboundOrder_Service {
     
     global static InboundResponse.InboundResponseList upsertOrder(OrderDTO orderDTO){
 
-        List<Order> ordersToUpsertList = new List<Order>();
-        List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
-        List<OrderDTO.OrderItemData> orderItemDataList= new List<OrderDTO.OrderItemData>();
+        List<OrderDTO.OrderItemData> orderItemDataList = new List<OrderDTO.OrderItemData>();
 
         Map<String, List<String>> externalIdsOrderToOrderItem = new  Map<String, List<String>>();
         Map<String, InboundResponse> orderResponseMap = new Map<String, InboundResponse>();
@@ -16,44 +14,9 @@ global with sharing class InboundOrder_Service {
         Boolean hasDeleted;
         String orderExternalIds = '';
 
-        for(OrderDTO.OrderData iOrderData : orderDTO.request){
-
-            ordersToUpsertList.add(new Order(
-				ExternalId__c			= iOrderData.orderCode,
-				EffectiveDate			= iOrderData.effectiveDate,
-				FreightType__c			= iOrderData.freightType,
-				deliveryDate__c			= iOrderData.deliveryDate,
-				Status					= iOrderData.status,
-				Observation__c			= iOrderData.obs,
-				Account					= new Account(ExternalId__c = iOrderData.accountCode),
-				AccountAddress__r		= new AccountAddress__c(ExternalId__c = iOrderData.addressCode),
-				PaymentCondition__r		= new PaymentCondition__c(ExternalId__c = iOrderData.paymentCode),
-				DistributionCenter__r	= new DistributionCenter__c(ExternalId__c = iOrderData.distributionCenterCode)
-            ));
-
-			if (iOrderData.orderItems != null) {
-				for (OrderDTO.OrderItemData iOrderItemData : iOrderData.orderItems) {
-                    if(externalIdsOrderToOrderItem.containsKey(iOrderData.orderCode)) {
-						externalIdsOrderToOrderItem.get(iOrderData.orderCode).add(iOrderItemData.itemCode);
-					}else{
-						externalIdsOrderToOrderItem.put(iOrderData.orderCode, new List<String>{iOrderItemData.itemCode});
-                    }
-
-					iOrderItemData.orderExternalId = iOrderData.orderCode;
-				}
-
-				orderItemDataList.addAll(iOrderData.orderItems);
-			}
-            if(orderExternalIds == '') orderExternalIds += iOrderData.orderCode;
-            else orderExternalIds += + ', ' + iOrderData.orderCode;
-        }
-
-		for(Order iOrder : ordersToUpsertList) {
-			iOrder.Status = 'Novo';
-		}
+        List<Order> ordersToUpsertList = convertingDataToObject(orderDTO, externalIdsOrderToOrderItem, orderItemDataList, orderExternalIds);
 
         List<Database.UpsertResult> upsertOrders = Database.upsert(ordersToUpsertList, Order.ExternalId__c, false);
-        Map<Id, Order> ordersIdstoOrdersMap = new Map<Id, Order>();
         List<String> orderItemsToDeleteInDatabase = new List<String>();
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
@@ -108,27 +71,9 @@ global with sharing class InboundOrder_Service {
             responseList.add(responseOrder);
         }
 
-        List<OrderItem> orderItemsInDatabase = new List<OrderItem>([
-            SELECT Id, OrderId, Product2Id, UnitPrice, Quantity
-            FROM OrderItem
-            WHERE ExternalId__c IN :orderItemsToDeleteInDatabase
-        ]);
+        deleteOrderItemsAlreadyInDatabase(orderItemsToDeleteInDatabase);
 
-        if(!orderItemsInDatabase.isEmpty()){
-            delete orderItemsInDatabase;
-        }
-
-        for(OrderDTO.OrderItemData iOrderItemData : orderItemDataList){
-            orderItemsToUpsertList.add(new OrderItem(
-                Order			= new Order(ExternalId__c = iOrderItemData.orderExternalId),
-                Product2        = new Product2(ExternalId__c = iOrderItemData.productCode),
-                Quantity		= iOrderItemData.quantity,
-                UnitPrice		= iOrderItemData.unitPrice,
-                ListPrice 		= iOrderItemData.listPrice,
-                TotvsItem__c	= iOrderItemData.totvsItem,
-                ExternalId__c	= iOrderItemData.itemCode
-            ));
-        }
+        List<OrderItem> orderItemsToUpsertList = convertingOrderItemDataToOrderItem(orderItemDataList);
 
         List<Database.UpsertResult> upsertOrderItems = Database.upsert(orderItemsToUpsertList, OrderItem.ExternalId__c, false);
         
@@ -251,6 +196,77 @@ global with sharing class InboundOrder_Service {
 
         return calloutResponseList;
     }
+
+    global static List<Order> convertingDataToObject(OrderDTO orderDTO,  Map<String, List<String>> externalIdsOrderToOrderItem, 
+    List<OrderDTO.OrderItemData> orderItemDataList, String orderExternalIds){
+
+        List<Order> ordersToUpsertList = new List<Order>();
+
+        for(OrderDTO.OrderData iOrderData : orderDTO.request){
+
+            ordersToUpsertList.add(new Order(
+				ExternalId__c			= iOrderData.orderCode,
+				EffectiveDate			= iOrderData.effectiveDate,
+				FreightType__c			= iOrderData.freightType,
+				deliveryDate__c			= iOrderData.deliveryDate,
+				Status					= 'Novo',
+				Observation__c			= iOrderData.obs,
+				Account					= new Account(ExternalId__c = iOrderData.accountCode),
+				AccountAddress__r		= new AccountAddress__c(ExternalId__c = iOrderData.addressCode),
+				PaymentCondition__r		= new PaymentCondition__c(ExternalId__c = iOrderData.paymentCode),
+				DistributionCenter__r	= new DistributionCenter__c(ExternalId__c = iOrderData.distributionCenterCode)
+            ));
+
+			if (iOrderData.orderItems != null) {
+				for (OrderDTO.OrderItemData iOrderItemData : iOrderData.orderItems) {
+                    if(externalIdsOrderToOrderItem.containsKey(iOrderData.orderCode)) {
+						externalIdsOrderToOrderItem.get(iOrderData.orderCode).add(iOrderItemData.itemCode);
+					}else{
+						externalIdsOrderToOrderItem.put(iOrderData.orderCode, new List<String>{iOrderItemData.itemCode});
+                    }
+
+					iOrderItemData.orderExternalId = iOrderData.orderCode;
+				}
+
+				orderItemDataList.addAll(iOrderData.orderItems);
+			}
+            if(orderExternalIds == '') orderExternalIds += iOrderData.orderCode;
+            else orderExternalIds += + ', ' + iOrderData.orderCode;
+        }
+
+        return ordersToUpsertList;
+    }
+
+    global static List<OrderItem> convertingOrderItemDataToOrderItem(List<OrderDTO.OrderItemData> orderItemDataList){
+
+        List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
+        for(OrderDTO.OrderItemData iOrderItemData : orderItemDataList){
+            orderItemsToUpsertList.add(new OrderItem(
+                Order			= new Order(ExternalId__c = iOrderItemData.orderExternalId),
+                Product2        = new Product2(ExternalId__c = iOrderItemData.productCode),
+                Quantity		= iOrderItemData.quantity,
+                UnitPrice		= iOrderItemData.unitPrice,
+                ListPrice 		= iOrderItemData.listPrice,
+                TotvsItem__c	= iOrderItemData.totvsItem,
+                ExternalId__c	= iOrderItemData.itemCode
+            ));
+        }
+        return orderItemsToUpsertList;
+    }
+
+    global static void deleteOrderItemsAlreadyInDatabase(List<String> orderItemsToDeleteInDatabase){
+
+        List<OrderItem> orderItemsInDatabase = new List<OrderItem>([
+            SELECT Id, OrderId, Product2Id, UnitPrice, Quantity
+            FROM OrderItem
+            WHERE ExternalId__c IN :orderItemsToDeleteInDatabase
+        ]);
+
+        if(!orderItemsInDatabase.isEmpty()){
+            delete orderItemsInDatabase;
+        }
+    }
+
 
     global static Boolean deleteOrderItemNotReceived(List<Order> ordersToUpsertList, List<OrderItem> orderItemsToUpsertList){
         
