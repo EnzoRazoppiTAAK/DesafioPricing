@@ -1,4 +1,4 @@
-public with sharing class putIntegrationLogIdInSomeObject {
+public with sharing class PutIntegrationLogIdInSomeObject {
 
     public static void updateOrder(List<Order> orderList, String integrationLogId, String integrationType) {
 		List<Order> orderUpdateList = new List<Order>();

@@ -1,16 +1,16 @@
 global with sharing class InboundOrder_Service {
     
-    global static CalloutResponse.CalloutResponseList upsertOrder(OrderDTO orderDTO){
+    global static InboundResponse.InboundResponseList upsertOrder(OrderDTO orderDTO){
 
         List<Order> ordersToUpsertList = new List<Order>();
         List<OrderItem> orderItemsToUpsertList = new List<OrderItem>();
         List<OrderDTO.OrderItemData> orderItemDataList= new List<OrderDTO.OrderItemData>();
 
         Map<String, List<String>> externalIdsOrderToOrderItem = new  Map<String, List<String>>();
-        Map<String, CalloutResponse> orderResponseMap = new Map<String, CalloutResponse>();
-        Map<String, List<CalloutResponse>> orderToOrderItemResponseMap = new Map<String, List<CalloutResponse>>();
+        Map<String, InboundResponse> orderResponseMap = new Map<String, InboundResponse>();
+        Map<String, List<InboundResponse>> orderToOrderItemResponseMap = new Map<String, List<InboundResponse>>();
         Map<String, List<OrderItem>> orderToIncorrectOrderItemMap = new Map<String, List<OrderItem>>();
-        List<CalloutResponse> responseList = new List<CalloutResponse>();
+        List<InboundResponse> responseList = new List<InboundResponse>();
         
         Boolean hasError = false;
         Boolean hasDeleted;
@@ -48,9 +48,7 @@ global with sharing class InboundOrder_Service {
             else orderExternalIds += + ', ' + iOrderData.orderCode;
         }
 
-        List<Order> ordersStatusToIntegrado = new List<Order>();
 		for(Order iOrder : ordersToUpsertList) {
-			ordersStatusToIntegrado.add(iOrder);
 			iOrder.Status = 'Novo';
 		}
 
@@ -62,10 +60,10 @@ global with sharing class InboundOrder_Service {
             Order order = ordersToUpsertList[i];
 			Database.UpsertResult upsertOrderResult = upsertOrders[i];
 
-            CalloutResponse responseOrder;
+            InboundResponse responseOrder;
         
             if(upsertOrderResult.isSuccess()){
-                responseOrder = CalloutResponse.builder()
+                responseOrder = InboundResponse.builder()
                     .setSalesforceId(upsertOrderResult.getId())
                     .setExternalCode(order.ExternalId__c)
                     .setHasError(false)
@@ -99,7 +97,7 @@ global with sharing class InboundOrder_Service {
                         error += iError.getMessage() + ' ';
                     }
                 }
-                responseOrder = CalloutResponse.builder()
+                responseOrder = InboundResponse.builder()
                     .setExternalCode(order.ExternalId__c)
                     .setHasError(true)
                     .setErrorMessage(error)
@@ -138,10 +136,10 @@ global with sharing class InboundOrder_Service {
             OrderItem orderItem = orderItemsToUpsertList[i];
 			Database.UpsertResult upsertOrderItemResult = upsertOrderItems[i];
 
-            CalloutResponse responseOrderItem;
+            InboundResponse responseOrderItem;
 
             if(upsertOrderItemResult.isSuccess()){
-                responseOrderItem = CalloutResponse.builder()
+                responseOrderItem = InboundResponse.builder()
                     .setSalesforceId(upsertOrderItemResult.getId())
                     .setExternalCode(orderItem.ExternalId__c)
                     .setHasError(false)
@@ -155,6 +153,7 @@ global with sharing class InboundOrder_Service {
                         error = 'ProductCode não pode ser null ou produto não encontrado com esse código.';
                     }else{
                         error += iError.getMessage() + ' ';
+                        System.debug('error: ' + error);
                     }
                 }
                 if(orderToIncorrectOrderItemMap.containsKey(orderItem.Order.ExternalId__c)) {
@@ -163,7 +162,7 @@ global with sharing class InboundOrder_Service {
                     orderToIncorrectOrderItemMap.put(orderItem.Order.ExternalId__c, new List<OrderItem>{orderItem});
                 }
 
-                responseOrderItem = CalloutResponse.builder()
+                responseOrderItem = InboundResponse.builder()
                     .setExternalCode(orderItem.ExternalId__c)
                     .setHasError(true)
                     .setErrorMessage(error)
@@ -174,7 +173,7 @@ global with sharing class InboundOrder_Service {
             if(orderToOrderItemResponseMap.containsKey(orderItem.Order.ExternalId__c)) {
                 orderToOrderItemResponseMap.get(orderItem.Order.ExternalId__c).add(responseOrderItem);
             }else{
-                orderToOrderItemResponseMap.put(orderItem.Order.ExternalId__c, new List<CalloutResponse>{responseOrderItem});
+                orderToOrderItemResponseMap.put(orderItem.Order.ExternalId__c, new List<InboundResponse>{responseOrderItem});
             }
 
             responseList.add(responseOrderItem);
@@ -182,23 +181,29 @@ global with sharing class InboundOrder_Service {
 
         hasDeleted = deleteOrderItemNotReceived(ordersToUpsertList, orderItemsToUpsertList);
 
-        for(Order iOrder : ordersStatusToIntegrado) {
+        for(Order iOrder : ordersToUpsertList) {
 			iOrder.Status = 'Integrado';
 		}
 
-        Database.upsert(ordersStatusToIntegrado, Order.ExternalId__c, false);
+        List<Database.UpsertResult> upsertOrdersToIntegrado = Database.upsert(ordersToUpsertList, Order.ExternalId__c, false);
         List<Order> ordersTodeleteList = new List<Order>();
 
         for (Integer i = 0; i < upsertOrders.size(); i++){
             Order order = ordersToUpsertList[i];
-			Database.UpsertResult upsertOrderResult = upsertOrders[i];
+			Database.UpsertResult upsertOrderResult = upsertOrdersToIntegrado[i];
+
+            System.debug('upsertOrderResult: ' + upsertOrderResult);
 
         
             if(!upsertOrderResult.isSuccess()){
                 hasError = true;
                 String error = '';
                 for(Database.Error iError : upsertOrderResult.getErrors()){
-                    error += iError.getMessage() + ' ';
+                    if(iError.getMessage().contains('An order must have at least one product.')){
+                        error = 'A Order deve conter pelo menos um OrderItem.';
+                    }else{
+                        error += iError.getMessage() + ' ';
+                    }
                 }
                 if(orderResponseMap.get(order.ExternalId__c).hasError == false){
                     orderResponseMap.get(order.ExternalId__c).hasError = true;
@@ -213,7 +218,7 @@ global with sharing class InboundOrder_Service {
                     orderResponseMap.get(order.ExternalId__c).errorMessage = 'Order não adicionado e se já existia no banco de dados, foi deletado, por erro nem um ou mais OrderItems.';
                 }
 
-                for(CalloutResponse iOrderItemResponse : orderToOrderItemResponseMap.get(order.ExternalId__c)){
+                for(InboundResponse iOrderItemResponse : orderToOrderItemResponseMap.get(order.ExternalId__c)){
                     iOrderItemResponse.hasError = true;
                     iOrderItemResponse.salesforceId = null;
                     iOrderItemResponse.errorMessage = 'OrderItem não adicionado por erro em algum OrderItem da sua mesma Order.';
@@ -225,7 +230,7 @@ global with sharing class InboundOrder_Service {
             delete ordersTodeleteList;
         }
 
-        CalloutResponse.CalloutResponseList calloutResponseList = new CalloutResponse.CalloutResponseList(responseList);
+        InboundResponse.InboundResponseList calloutResponseList = new InboundResponse.InboundResponseList(responseList);
 
         OrderTriggerHandler.disableTrigger();
 
@@ -240,7 +245,7 @@ global with sharing class InboundOrder_Service {
             .setHasDeleted(hasDeleted)
             .build();
 
-        putIntegrationLogIdInSomeObject.updateOrder(ordersToUpsertList, integrationLogId, 'IN');
+        PutIntegrationLogIdInSomeObject.updateOrder(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
 

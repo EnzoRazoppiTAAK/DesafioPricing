@@ -3,5 +3,4 @@ public with sharing class InvocableMethodOrder {
     public static void invocableProcessIntegration(List<Id> OrdersIds){
        CalloutOrder_Service.calloutOrders(OrdersIds, 'Elias');
     }
-    
 }

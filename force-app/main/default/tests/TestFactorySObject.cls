@@ -65,7 +65,7 @@ public class TestFactorySObject {
 			standardPricebook = retrievedPricebook;
 		}
 
-		if (standardPricebook == null) update new Pricebook2(Id = pricebookId, IsActive = true);
+		//if (standardPricebook == null) update new Pricebook2(Id = pricebookId, IsActive = true);
 
 		return pricebookId;
 	}

@@ -261,18 +261,17 @@ public with sharing class OrderItemTrigger_Test {
     static void testInsertWithoutRequiredParameters(){
         TestFactorySObject testFactory = TestFactorySObject.getInstance();
 
-        List<Product2> productsList  = [SELECT Id, ProductionCost__c FROM Product2 LIMIT 3];
-        List<PricebookEntry> pricebookEntriesList = [SELECT Id FROM PricebookEntry LIMIT 3];
+        Product2 firstProduct  = [SELECT Id, ProductionCost__c FROM Product2 LIMIT 1];
+        PricebookEntry firstPricebookEntry = [SELECT Id FROM PricebookEntry LIMIT 1];
         Order firstOrder = [SELECT Id FROM Order LIMIT 1];
         
         OrderItem firstOrderItem = (OrderItem)testFactory.createSObject(new OrderItem(
-            Product2Id = productsList.get(2).Id,
+            Product2Id = firstProduct.Id,
             Quantity = 0,
-            UnitPrice = productsList.get(2).ProductionCost__c,
+            UnitPrice = firstProduct.ProductionCost__c,
             OrderId = firstOrder.Id,
-            PricebookEntryId = pricebookEntriesList.get(2).Id
+            PricebookEntryId = firstPricebookEntry.Id
         ));
-        firstOrderItem.ListPrice = null;
         Test.startTest();
         Database.SaveResult orderItemWeWillTryToInsert = Database.insert(firstOrderItem, false);
         Test.stopTest();
@@ -608,5 +607,38 @@ public with sharing class OrderItemTrigger_Test {
 
         Assert.areNotEqual(formerMargin, firstOrderItem.MarginPercentage__c, 'Error: The values of margins should not be equal');
         Assert.areEqual(mostSpecificMargin.Value__c, firstOrderItem.MarginPercentage__c, 'Error: The values of margins should be equal');
+    }
+
+    @IsTest
+    static void testUpdateERPItem(){
+        TestFactorySObject testFactory = TestFactorySObject.getInstance();
+
+        Product2 firstProduct  = [SELECT Id, ProductionCost__c FROM Product2 LIMIT 1];
+        PricebookEntry firstPricebookEntry = [SELECT Id FROM PricebookEntry LIMIT 1];
+        Order firstOrder = [SELECT Id FROM Order LIMIT 1];
+        User userIntegration = [SELECT Id FROM User WHERE Username = 'userintegration@api.com'];
+        
+        OrderItem firstOrderItem = (OrderItem)testFactory.createSObject(new OrderItem(
+            Product2Id = firstProduct.Id,
+            Quantity = 1,
+            UnitPrice = firstProduct.ProductionCost__c,
+            OrderId = firstOrder.Id,
+            PricebookEntryId = firstPricebookEntry.Id,
+            TotvsItem__c = true
+        ));
+
+        Test.startTest();
+
+        insert firstOrderItem;
+        System.runAS(userIntegration){ 
+            System.debug(userIntegration.Id);
+            System.debug(firstOrderItem);
+            firstOrderItem.Quantity = 5;
+            Database.SaveResult orderItemWeWillTryToUpdate = Database.update(firstOrderItem, false);
+
+            Assert.isFalse(orderItemWeWillTryToUpdate.isSuccess(), 'Error: Should not be able to update ERP order item');
+        }
+        
+        Test.stopTest();
     }
 }

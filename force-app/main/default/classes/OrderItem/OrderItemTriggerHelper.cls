@@ -313,7 +313,7 @@ public with sharing class OrderItemTriggerHelper {
     public static void isERPItem(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
             if(iOrderItem.TotvsItem__c == true){
-                if(UserInfo.getUserName() != 'integration@00dbm00000s4xofean.com'){
+                if(UserInfo.getUserName() != 'razoppienzo@brave-shark-nskhtp.com'){
                     iOrderItem.addError('Objeto criado em ERP só pode ser modificado pelo ERP!');
                 }
             }

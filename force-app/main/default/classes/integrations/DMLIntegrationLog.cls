@@ -4,8 +4,8 @@ public with sharing class DMLIntegrationLog {
         try {
 			insert log;
 
-			if (attachmentIN) IntegrationLogUtils.createAttachment(log, 'IN');
-			if (attachmentOUT) IntegrationLogUtils.createAttachment(log, 'OUT');
+			if (attachmentIN) createAttachment(log, 'IN');
+			if (attachmentOUT) createAttachment(log, 'OUT');
 		}
 		catch (Exception error) {
 			System.debug('EXCEPTION ON LOG - Please review parameters - ' + error.getMessage() + ' - ' + error.getStackTraceString());

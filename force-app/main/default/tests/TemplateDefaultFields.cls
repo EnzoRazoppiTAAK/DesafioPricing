@@ -459,5 +459,13 @@ public with sharing class TemplateDefaultFields {
 			};
 		}
     }
+	public class DevUserDefaults implements FieldDefaults{
+        public Map<String, Object> getFieldDefaults(Decimal countSObjectCreated) {
+			return new Map<String, Object>{
+				'Name' => 'DevUser Test ' + String.valueOf(countSObjectCreated),
+				'Login__c' => 'EnzoRazoppiTAAk'
+			};
+		}
+    }
 }
  

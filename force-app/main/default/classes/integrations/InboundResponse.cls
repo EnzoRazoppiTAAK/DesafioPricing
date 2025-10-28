@@ -1,4 +1,4 @@
-global with sharing class CalloutResponse {
+global with sharing class InboundResponse {
 
     public String salesforceId;
     public String externalCode;
@@ -6,7 +6,7 @@ global with sharing class CalloutResponse {
     public String errorMessage;
     public String sobjectType;
 
-    public CalloutResponse(ResponseBuilder builder){
+    public InboundResponse(ResponseBuilder builder){
         this.salesforceId = builder.salesforceId;
         this.externalCode = builder.externalCode;
         this.hasError = builder.hasError;
@@ -50,16 +50,16 @@ global with sharing class CalloutResponse {
             return this;
         }
 
-        public CalloutResponse build(){
-            return new CalloutResponse(this);
+        public InboundResponse build(){
+            return new InboundResponse(this);
         }
     }
 
-    global class CalloutResponseList{
+    global class InboundResponseList{
 
-        public List<CalloutResponse> response;
+        public List<InboundResponse> response;
 
-        public CalloutResponseList(List<CalloutResponse> response){
+        public InboundResponseList(List<InboundResponse> response){
             this.response = response;
         }
     }

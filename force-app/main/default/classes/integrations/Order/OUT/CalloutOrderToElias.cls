@@ -37,7 +37,7 @@ global with sharing class CalloutOrderToElias implements CalloutOrderTo_Interfac
 
         if(responseCallout.substring(2, 13) == '"errorCode"'){ //caso de erro no callout 
             for(Order iOrder: ordersToSendList){
-                iOrder.Status = 'Erro de Integração';
+                iOrder.Status = 'Erro de integração';
             }
         }else{
             Map<String, Object> deserializeResponsesList = (Map<String, Object>) JSON.deserializeUntyped(responseCallout);
@@ -49,21 +49,21 @@ global with sharing class CalloutOrderToElias implements CalloutOrderTo_Interfac
 
                 if(responseObject.get('externalCode') == null){
                     for(Order iOrder: ordersToSendList){
-                        iOrder.Status = 'Erro de Integração';
+                        iOrder.Status = 'Erro de integração';
                     }
                 }
                     
-                if(responseObject.get('hasError') == false){
+                else if(responseObject.get('hasError') == false){
                     orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Integrado';
                 }else{
-                    orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Erro de Integração';
+                    orderExternalIdToOrderMap.get(String.valueOf(responseObject.get('externalCode'))).Status = 'Erro de integração';
                 }
             }
-
-            OrderTriggerHandler.disableTrigger();
-            System.debug('ordersToSendList => ' + ordersToSendList);
-            update ordersToSendList;
-            OrderTriggerHandler.enableTrigger();
         }
+        
+        OrderTriggerHandler.disableTrigger();
+        System.debug('ordersToSendList => ' + ordersToSendList);
+        update ordersToSendList;
+        OrderTriggerHandler.enableTrigger();
     }
 }
