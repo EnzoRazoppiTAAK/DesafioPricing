@@ -2,39 +2,37 @@ public with sharing class DevUserTriggerHelper {
     public static void handleAfterInsertDevUser(List<DevUser__c> newRecordList){
         System.debug('afterInsert');
 
-        List<DevUser__c> devUsersToCallout = new List<DevUser__c>();
+        List<Id> devUsersIdToCallout = new List<Id>();
 
         for(DevUser__c iDevUser: newRecordList){
             if(iDevUser.Login__c != null){
-                if(iDevUser.Type__c == null && iDevUser.Bio__c == null){
-                    devUsersToCallout.add(iDevUser);
-                }
+                devUsersIdToCallout.add(iDevUser.Id);
             }
         }
 
-        if(!devUsersToCallout.isEmpty()){
-            executeBatchCalloutGithub();
+        if(!devUsersIdToCallout.isEmpty()){
+            executeBatchCalloutGithub(devUsersIdToCallout);
         }
     }
 
     public static void handleAfterUpdateDevUser(List<DevUser__c> newRecordList, Map<Id, DevUser__c> oldRecordMap){
         System.debug('afterUpdate');
 
-        List<DevUser__c> devUsersToCallout = new List<DevUser__c>();
+        List<Id> devUsersIdToCallout = new List<Id>();
 
         for(DevUser__c iDevUser: newRecordList){
             if(iDevUser.Login__c != null && iDevUser.Login__c != oldRecordMap.get(iDevUser.Id).Login__c){
-                devUsersToCallout.add(iDevUser);
+                devUsersIdToCallout.add(iDevUser.Id);
             }
         }
 
-        if(!devUsersToCallout.isEmpty()){
-            executeBatchCalloutGithub();
+        if(!devUsersIdToCallout.isEmpty()){
+            executeBatchCalloutGithub(devUsersIdToCallout);
         }
     }
 
 
-    public static void executeBatchCalloutGithub(){
-        Database.executeBatch(new BatchCalloutGitHubUsers(), 10);
+    public static void executeBatchCalloutGithub(List<Id> devUsersIdToCallout){
+        Database.executeBatch(new BatchCalloutGitHubUsers(devUsersIdToCallout), 10);
     }
 }

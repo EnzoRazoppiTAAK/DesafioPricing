@@ -14,7 +14,7 @@ global with sharing class InboundOrder_Service {
         Boolean hasDeleted;
         String orderExternalIds = '';
 
-        List<Order> ordersToUpsertList = convertingDataToObject(orderDTO, externalIdsOrderToOrderItem, orderItemDataList, orderExternalIds);
+        List<Order> ordersToUpsertList = convertingOrderDataToOrder(orderDTO, externalIdsOrderToOrderItem, orderItemDataList, orderExternalIds);
 
         List<Database.UpsertResult> upsertOrders = Database.upsert(ordersToUpsertList, Order.ExternalId__c, false);
         List<String> orderItemsToDeleteInDatabase = new List<String>();
@@ -197,7 +197,7 @@ global with sharing class InboundOrder_Service {
         return calloutResponseList;
     }
 
-    global static List<Order> convertingDataToObject(OrderDTO orderDTO,  Map<String, List<String>> externalIdsOrderToOrderItem, 
+    global static List<Order> convertingOrderDataToOrder(OrderDTO orderDTO,  Map<String, List<String>> externalIdsOrderToOrderItem, 
     List<OrderDTO.OrderItemData> orderItemDataList, String orderExternalIds){
 
         List<Order> ordersToUpsertList = new List<Order>();
