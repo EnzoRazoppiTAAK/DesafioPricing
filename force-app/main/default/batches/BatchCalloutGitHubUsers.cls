@@ -18,28 +18,8 @@ global with sharing class BatchCalloutGitHubUsers implements Database.Batchable<
         List<DevUser__c> devUsersToUpdate = new List<DevUser__c>();
 
         for(DevUser__c iDevUser: scope){
-            String endpoint = 'https://api.github.com/users/' + iDevUser.Login__c;
 
-            System.debug('EXECUTING CALLOUT');
-
-            HttpRequest request = new HttpRequest();
-            request.setMethod('GET');
-            request.setEndpoint(endpoint);
-            HttpResponse response;
-            try{
-                response = new Http().send(request);
-
-                System.debug('RESPONSE: '+ response.getBody());
-
-                GithubResponse githubResponse = (GithubResponse) JSON.deserialize(response.getBody(), GithubResponse.class);
-                iDevUser.ExternalId__c = githubResponse.id;
-                iDevUser.Type__c = githubResponse.type;
-                iDevUser.Bio__c = githubResponse.bio;
-                devUsersToUpdate.add(iDevUser);
-            
-            }catch(Exception e){         
-                System.debug('Erro ao executar o callout: '+ e.getMessage());
-            }
+            devUsersToUpdate.add(ExecuteCalloutGetDevUsers.executeCallout(iDevUser));
         }
 
         DevUserTriggerHandler.disableTrigger();
@@ -49,11 +29,5 @@ global with sharing class BatchCalloutGitHubUsers implements Database.Batchable<
     }
 
     global void finish(Database.BatchableContext bc){}
-
-    global class GithubResponse{
-        public String id;
-        public String type;
-        public String bio; 
-    }
 
 }

@@ -17,7 +17,7 @@ global with sharing class ExecuteCalloutOrders {
         IntegrationLogBuilder logBuilder = IntegrationLogBuilder.builder()
                 .setIntegrationName('Order')
                 .setExternalIdList(orderExternalIds)
-                .setRecordTypeName('OUTBOUND')
+                .setOperation('OUTBOUND')
                 .setEndpoint(endpoint)
                 .setPayloadIN(JSON.serialize(orderJson));
         try{
@@ -38,7 +38,7 @@ global with sharing class ExecuteCalloutOrders {
         }catch(Exception e){
 
             integrationLogId = logBuilder
-                .setPayloadOUT(JSON.serialize(e.getMessage()))
+                .setPayloadOUT(e.getMessage())
                 .setHasAnyErrors(true)
                 .setHasDeleted(false)
                 .build();

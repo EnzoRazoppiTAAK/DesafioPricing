@@ -5,13 +5,13 @@ public with sharing class PutIntegrationLogIdInSomeObject {
 
 		System.debug('integrationLogId: ' + integrationLogId);
 
-		for (Order order : [SELECT Id, ReceivedOrderLog__c, SentOrderLog__c FROM Order WHERE Id IN: orderList]) {
-			if (integrationType == 'IN') order.ReceivedOrderLog__c = integrationLogId;
-			else order.SentOrderLog__c = integrationLogId;
+		for (Order iOrder : [SELECT Id, ReceivedOrderLog__c, SentOrderLog__c FROM Order WHERE Id IN: orderList]) {
+			if (integrationType == 'IN') iOrder.ReceivedOrderLog__c = integrationLogId;
+			else iOrder.SentOrderLog__c = integrationLogId;
 
-			System.debug('responseObject: ' + order.SentOrderLog__c);
+			System.debug('responseObject: ' + iOrder.SentOrderLog__c);
 
-			orderUpdateList.add(order);
+			orderUpdateList.add(iOrder);
 		}
 
 		if (!orderUpdateList.isEmpty()) update orderUpdateList;

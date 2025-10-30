@@ -2,7 +2,7 @@ public with sharing class IntegrationLogBuilder {
 
 	public String integrationName;
 	public String externalIdList;
-	public String recordTypeName;
+	public String operation;
 	public String payloadIN;
 	public String payloadOUT;
 	public String endpoint;
@@ -25,8 +25,8 @@ public with sharing class IntegrationLogBuilder {
 		return this;
 	}
 
-	public IntegrationLogBuilder setRecordTypeName(String recordTypeName){
-		this.recordTypeName = recordTypeName;
+	public IntegrationLogBuilder setOperation(String operation){
+		this.operation = operation;
 		return this;
 	}
 
@@ -60,7 +60,7 @@ public with sharing class IntegrationLogBuilder {
 	public Id build(){
 
 		IntegrationLog__c log = new IntegrationLog__c(
-			Name = integrationName + ' ' + recordTypeName,
+			Name = integrationName + ' ' + operation,
 			Endpoint__c = endpoint,
 			ExternalIdList__c = externalIdList.length() > 255 ? externalIdList.substring(0, 256) : externalIdList,
 			Attachment__c = (attachmentIN || attachmentOUT),

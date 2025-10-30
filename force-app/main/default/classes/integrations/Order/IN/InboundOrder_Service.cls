@@ -182,7 +182,7 @@ global with sharing class InboundOrder_Service {
         String integrationLogId = IntegrationLogBuilder.builder()
             .setIntegrationName('Order')
             .setExternalIdList(orderExternalIds)
-            .setRecordTypeName('INBOUND')
+            .setOperation('INBOUND')
             .setPayloadIN(JSON.serialize(orderDTO))
             .setPayloadOUT(JSON.serialize(calloutResponseList))
             .setEndpoint('https://brave-shark-nskhtp-dev-ed.trailblaze.my.salesforce.com/services//apexrest/upsertOrder')
