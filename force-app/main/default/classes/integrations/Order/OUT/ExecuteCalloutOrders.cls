@@ -31,7 +31,7 @@ global with sharing class ExecuteCalloutOrders {
                 .setHasDeleted(false)
                 .build();
 
-            PutIntegrationLogIdInSomeObject.updateOrder(ordersToSendList, integrationLogId, 'OUT');
+            PutLogIdInOrder.updateOrder(ordersToSendList, integrationLogId, 'OUT');
 
             return response.getBody();
             
@@ -43,7 +43,7 @@ global with sharing class ExecuteCalloutOrders {
                 .setHasDeleted(false)
                 .build();
 
-            PutIntegrationLogIdInSomeObject.updateOrder(ordersToSendList, integrationLogId, 'OUT');
+            PutLogIdInOrder.updateOrder(ordersToSendList, integrationLogId, 'OUT');
             return e.getMessage();
         }
     }

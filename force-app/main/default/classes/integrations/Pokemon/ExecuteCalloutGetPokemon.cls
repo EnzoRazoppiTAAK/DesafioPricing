@@ -4,6 +4,8 @@ global with sharing class ExecuteCalloutGetPokemon {
 
         System.debug('EXECUTING CALLOUT TO GET POKEMONS');
 
+        API__mdt pokemonApi = API__mdt.getInstance('PokemonAPI');
+
         HttpRequest request = new HttpRequest();
         request.setMethod('GET');
         request.setEndpoint(endpoint);
@@ -16,15 +18,34 @@ global with sharing class ExecuteCalloutGetPokemon {
 
             PokemonApiResponse pokemonApiResponse = (PokemonApiResponse) JSON.deserialize(response.getBody(), PokemonApiResponse.class);
 
-            List<Pokemon__c> PokemonsToInsert = new List<Pokemon__c>();
+            String externalIdList = '';
+            List<Pokemon__c> PokemonsToUpsert = new List<Pokemon__c>();
 
             for(ApiPokemon iApiPokemon : pokemonApiResponse.results){
-                PokemonsToInsert.add(new Pokemon__c(
+
+                Pokemon__c pokemon = new Pokemon__c(
                     Name = iApiPokemon.name,
-                    Url__c = iApiPokemon.url
-                ));
+                    Url__c = iApiPokemon.url,
+                    ExternalId__c = iApiPokemon.url.remove(pokemonApi.Endpoint__c).remove('/')
+                );
+
+                PokemonsToUpsert.add(pokemon);
+                externalIdList += pokemon.ExternalId__c + ', ';
             }
-            Database.insert(PokemonsToInsert, false);
+            Database.upsert(PokemonsToUpsert, Pokemon__c.ExternalId__c, false);
+
+            Id integrationLogId = IntegrationLogBuilder.builder()
+                .setIntegrationName('Pokemon')
+                .setExternalIdList(externalIdList)
+                .setOperation('INBOUND')
+                .setPayloadIN(JSON.serialize(response.getBody()))
+                .setPayloadOUT('')
+                .setEndpoint(endpoint)
+                .setHasAnyErrors(false)
+                .setHasDeleted(false)
+                .build();
+
+            PutLogIdInPokemon.updatePokemon(PokemonsToUpsert, integrationLogId);
 
             return pokemonApiResponse.next;
 

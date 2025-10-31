@@ -34,7 +34,6 @@ global with sharing class ExecuteCalloutGetDevUsers {
                 .setHasDeleted(false)
                 .build();
 
-            
             return iDevUser;
                 
         }catch(Exception e){         

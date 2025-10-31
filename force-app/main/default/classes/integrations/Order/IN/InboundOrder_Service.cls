@@ -190,7 +190,7 @@ global with sharing class InboundOrder_Service {
             .setHasDeleted(hasDeleted)
             .build();
 
-        PutIntegrationLogIdInSomeObject.updateOrder(ordersToUpsertList, integrationLogId, 'IN');
+        PutLogIdInOrder.updateOrder(ordersToUpsertList, integrationLogId, 'IN');
         
         OrderTriggerHandler.enableTrigger();
 
