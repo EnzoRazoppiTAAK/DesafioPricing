@@ -1,14 +1,25 @@
-global with sharing class BatchLoadGoalItemsWithOpportunities implements Database.Batchable<sObject>, Schedulable, Database.Stateful {
-
+global with sharing class BatchUpdateGoalItems implements Database.Batchable<sObject>, Schedulable, Database.Stateful {
+    
     Map<Id, GoalItem__c> goalItemsToUpdateMap = new Map<Id, GoalItem__c>();
     Date today = Date.today();
     Integer year = Date.today().year();
+    String objectToSearch;
+
+    global BatchUpdateGoalItems(String objectToSearch){
+        this.objectToSearch = objectToSearch;
+    }
 
     global Database.QueryLocator start(Database.BatchableContext bc){
+
+        
 
         String opportunities = 'SELECT Id, StageName, ExpectedRevenue, OwnerId, CloseDate, PaymentCondition__c , ' +
         '(SELECT Id, Product2Id, Quantity, TotalPrice FROM OpportunityLineItems) ' + 
         'FROM Opportunity WHERE CloseDate > :today';
+
+        String orders = 'SELECT Id, Status, OrderValue__c, OwnerId, PaymentCondition__c, EndDate, ActivatedDate, ' +
+        '(SELECT Id, Product2Id, Quantity, FinalTotalPrice__c FROM OrderItems) ' + 
+        'FROM Order';
 
         return Database.getQueryLocator(opportunities);
     }
@@ -18,6 +29,8 @@ global with sharing class BatchLoadGoalItemsWithOpportunities implements Databas
         Map<Id, List<Opportunity>> ownerIdToOpportunitiesMap = new Map<Id, List<Opportunity>>(); 
         List<OpportunityLineItem> opportunityLineItems = new List<OpportunityLineItem>();
         for(Opportunity iOpportunity: scope){
+
+            System.debug('iOpportunity: ' + iOpportunity);
 
             if(ownerIdToOpportunitiesMap.containsKey(iOpportunity.OwnerId)){
                 ownerIdToOpportunitiesMap.get(iOpportunity.OwnerId).add(iOpportunity);
@@ -35,7 +48,7 @@ global with sharing class BatchLoadGoalItemsWithOpportunities implements Databas
 
         Map<id, List<Opportunity>> goalIdsToOpportunitiesMap = new Map<Id, List<Opportunity>>();
         for(Goal__c iGoal: sellerGoals.values()){
-
+            System.debug('iGoal: ' + iGoal);
             if(ownerIdToOpportunitiesMap.containsKey(iGoal.Seller__c)){
                 goalIdsToOpportunitiesMap.put(iGoal.Id, ownerIdToOpportunitiesMap.get(iGoal.Seller__c));
             }
@@ -106,4 +119,5 @@ global with sharing class BatchLoadGoalItemsWithOpportunities implements Databas
     global void execute(SchedulableContext sc){
         Database.executeBatch(new BatchLoadGoalItemsWithOpportunities());
     }
+
 }

@@ -1,6 +1,7 @@
 public with sharing class UpdateGoalItemWithOrder {
 
     static Date today = Date.today();
+    static Integer year = Date.today().year();
 
     public static GoalItem__c performanceGoalItem(GoalItem__c goalItem, List<Order> orders){
         
@@ -10,7 +11,9 @@ public with sharing class UpdateGoalItemWithOrder {
                     goalItem.NegotiatedValue__c += iOrder.OrderValue__c;
                 }
             }else{
-                goalItem.RealizedValue__c += iOrder.OrderValue__c;
+                if(iOrder.ActivatedDate.year() == year){
+                    goalItem.RealizedValue__c += iOrder.OrderValue__c;
+                }
             }
         }
         return goalItem;
@@ -26,7 +29,9 @@ public with sharing class UpdateGoalItemWithOrder {
                     negotiatedOrderItems.addAll(iOrder.OrderItems);
                 }
             }else{
-                realizedOrderItems.addAll(iOrder.OrderItems);
+                if(iOrder.ActivatedDate.year() == year){
+                    realizedOrderItems.addAll(iOrder.OrderItems);
+                }
             }
         }
 
@@ -54,7 +59,9 @@ public with sharing class UpdateGoalItemWithOrder {
                     negotiatedOrderItems.addAll(iOrder.OrderItems);
                 }
             }else{
-                realizedOrderItems.addAll(iOrder.OrderItems);
+                if(iOrder.ActivatedDate.year() == year){
+                    realizedOrderItems.addAll(iOrder.OrderItems);
+                }
             }
         }
 
@@ -84,7 +91,9 @@ public with sharing class UpdateGoalItemWithOrder {
                     goalItem.NegotiatedValue__c += iOrder.OrderValue__c;
                 }
             }else{
-                goalItem.RealizedValue__c += iOrder.OrderValue__c;
+                if(iOrder.ActivatedDate.year() == year){
+                    goalItem.RealizedValue__c += iOrder.OrderValue__c;
+                }
             }
         }
         return goalItem;

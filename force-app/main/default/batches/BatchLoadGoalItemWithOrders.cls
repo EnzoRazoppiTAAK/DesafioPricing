@@ -1,6 +1,7 @@
 global with sharing class BatchLoadGoalItemWithOrders implements Database.Batchable<sObject>, Database.Stateful{
 
     Map<Id, GoalItem__c> goalItemsToUpdateMap = new Map<Id, GoalItem__c>();
+    Integer year = Date.today().year();
 
     global Database.QueryLocator start(Database.BatchableContext bc){
 
@@ -25,7 +26,6 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
             orderItems.addAll(iOrder.OrderItems);
         }
 
-        Integer year = Date.today().year();
         Map<Id, Goal__c> sellerGoals = new Map<Id, Goal__c>([
             SELECT Id, Seller__c, Year__c 
             FROM Goal__c 
@@ -41,7 +41,8 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
         }
         
         List<GoalItem__c> goalItems = [
-            SELECT Id, RecordTypeId, ProductId__c, ProductHierarchyId__c, PaymentConditionId__c, GoalId__c, Completed__c, NegotiatedValue__c, RealizedValue__c
+            SELECT Id, RecordTypeId, ProductId__c, ProductHierarchyId__c, PaymentConditionId__c, GoalId__c, Completed__c,
+            NegotiatedValue__c, RealizedValue__c, GoalValue__c, AchievedPercentage__c, CommissionPercentage__c
             FROM GoalItem__c 
             WHERE GoalId__c IN :sellerGoals.keySet() AND Completed__c = false
         ];
@@ -100,6 +101,13 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
     }
 
     global void finish(Database.BatchableContext bc){
+
+        for(GoalItem__c iGoalItem: goalItemsToUpdateMap.values()){
+            if(iGoalItem.RealizedValue__c >= iGoalItem.GoalValue__c){
+                iGoalItem.Completed__c = true;
+                iGoalItem.AchievedPercentage__c = iGoalItem.CommissionPercentage__c;
+            }
+        }
         Database.update(goalItemsToUpdateMap.values());
     }
 }
