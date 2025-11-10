@@ -5,10 +5,11 @@ global with sharing class BatchLoadGoalItemsWithOpportunities implements Databas
     global Database.QueryLocator start(Database.BatchableContext bc){
 
         Date today = Date.today();
+        Integer year = Date.today().year();
 
         String opportunities = 'SELECT Id, StageName, ExpectedRevenue, OwnerId, CloseDate, PaymentCondition__c , ' +
         '(SELECT Id, Product2Id, Quantity, TotalPrice FROM OpportunityLineItems) ' + 
-        'FROM Opportunity WHERE CloseDate > :today';
+        'FROM Opportunity WHERE CloseDate > :today AND ';
 
         return Database.getQueryLocator(opportunities);
     }
@@ -103,7 +104,7 @@ global with sharing class BatchLoadGoalItemsWithOpportunities implements Databas
 
     global void finish(Database.BatchableContext bc){
         Database.update(goalItemsToUpdateMap.values());
-        //BatchLoadMetasWithOrders
+        Database.executeBatch(new BatchLoadGoalItemWithOrders());
     }
 
     global void execute(SchedulableContext sc){

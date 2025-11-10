@@ -6,7 +6,7 @@ public with sharing class OrderTriggerHelper {
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         Map<Id, List<OrderItem>> orderIdToOrderItemMap =  getOrderIdToOrderItemMap(newRecordList);
 
-        calculateFinalPrice(newRecordList, orderIdToOrderItemMap);
+        calculateOrderValue(newRecordList, orderIdToOrderItemMap);
         calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         cannotUpdateIntegradoItem(newRecordList, oldRecordMap);
@@ -42,11 +42,11 @@ public with sharing class OrderTriggerHelper {
         return orderIdToOrderItemMap;
     }
 
-    public static void calculateFinalPrice(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
+    public static void calculateOrderValue(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
 
         for(Order iOrder: newRecordList){
+            iOrder.OrderValue__c = 0.0;
             if(orderIdToOrderItemMap.containsKey(iOrder.Id)){
-                iOrder.OrderValue__c = 0.0;
                 for(OrderItem iOrderItem : orderIdToOrderItemMap.get(iOrder.Id)){
                     iOrder.OrderValue__c += iOrderItem.FinalTotalPrice__c;
                 }
