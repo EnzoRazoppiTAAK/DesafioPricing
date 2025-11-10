@@ -6,6 +6,7 @@ public with sharing class OrderTriggerHelper {
     public static void handleBeforeUpdateOrder(List<Order> newRecordList, Map<Id, Order> oldRecordMap){
         Map<Id, List<OrderItem>> orderIdToOrderItemMap =  getOrderIdToOrderItemMap(newRecordList);
 
+        calculateFinalPrice(newRecordList, orderIdToOrderItemMap);
         calculateDiscount(newRecordList, orderIdToOrderItemMap);
         cannotUpdateTheOrderAccount(newRecordList, oldRecordMap);
         cannotUpdateIntegradoItem(newRecordList, oldRecordMap);
@@ -27,7 +28,7 @@ public with sharing class OrderTriggerHelper {
 
     public static Map<Id, List<OrderItem>> getOrderIdToOrderItemMap(List<Order> newRecordList){
         List<OrderItem> orderItemsList = [
-            SELECT Id, Discount__c, OrderId, OrderItemNumber
+            SELECT Id, Discount__c, OrderId, OrderItemNumber, FinalTotalPrice__c
             FROM OrderItem
             WHERE OrderId IN: newRecordList
         ];
@@ -39,6 +40,18 @@ public with sharing class OrderTriggerHelper {
         }
 
         return orderIdToOrderItemMap;
+    }
+
+    public static void calculateFinalPrice(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){
+
+        for(Order iOrder: newRecordList){
+            if(orderIdToOrderItemMap.containsKey(iOrder.Id)){
+                iOrder.OrderValue__c = 0.0;
+                for(OrderItem iOrderItem : orderIdToOrderItemMap.get(iOrder.Id)){
+                    iOrder.OrderValue__c += iOrderItem.FinalTotalPrice__c;
+                }
+            }
+        }
     }
 
     public static void calculateDiscount(List<Order> newRecordList, Map<Id, List<OrderItem>> orderIdToOrderItemMap){

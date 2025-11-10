@@ -2,11 +2,13 @@ public with sharing class OrderItemTriggerHelper {
     public static void handleInsertOrderItem(List<OrderItem> newRecordList){
         calculateParametersInOrderItem(newRecordList);
         calculateFinalPrice(newRecordList);
+        calculateFinalTotalPrice(newRecordList);
         joinDuplicates(newRecordList);
     }
     public static void handleUpdateOrderItem(List<OrderItem> newRecordList){
         calculateParametersInOrderItem(newRecordList);
         calculateFinalPrice(newRecordList);
+        calculateFinalTotalPrice(newRecordList);
         isERPItem(newRecordList);
         joinDuplicates(newRecordList);
     }
@@ -305,8 +307,13 @@ public with sharing class OrderItemTriggerHelper {
 
     public static void calculateFinalPrice(List<OrderItem> newRecordList){
         for(OrderItem iOrderItem: newRecordList){
-            System.debug('NEWRECORDLIST '+newRecordList);
-            iOrderItem.FinalPrice__c =(iOrderItem.UnitPrice + (iOrderItem.FreightValue__c/100)) * (1+  (iOrderItem.MarginPercentage__c/100)) * (1+ (iOrderItem.TaxPercentage__c/100));
+            iOrderItem.FinalPrice__c =(iOrderItem.UnitPrice + iOrderItem.FreightValue__c) * (1+  (iOrderItem.MarginPercentage__c/100)) * (1+ (iOrderItem.TaxPercentage__c/100));
+        }
+    }
+
+    public static void calculateFinalTotalPrice(List<OrderItem> newRecordList){
+        for(OrderItem iOrderItem: newRecordList){
+            iOrderItem.FinalTotalPrice__c = iOrderItem.FinalPrice__c * iOrderItem.Quantity;
         }
     }
 

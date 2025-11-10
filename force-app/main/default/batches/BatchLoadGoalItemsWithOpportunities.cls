@@ -1,4 +1,4 @@
-global with sharing class BatchLoadMetasWithOpportunities implements Database.Batchable<sObject>, Schedulable, Database.Stateful {
+global with sharing class BatchLoadGoalItemsWithOpportunities implements Database.Batchable<sObject>, Schedulable, Database.Stateful {
 
     Map<Id, GoalItem__c> goalItemsToUpdateMap = new Map<Id, GoalItem__c>();
 
@@ -6,9 +6,9 @@ global with sharing class BatchLoadMetasWithOpportunities implements Database.Ba
 
         Date today = Date.today();
 
-        String opportunities = 'SELECT Id, StageName, ExpectedRevenue, OwnerId, CloseDate, PaymentCondition__c ,';
-            opportunities += '(SELECT Id, Product2Id, Quantity, TotalPrice FROM OpportunityLineItems) ';
-            opportunities += 'FROM Opportunity WHERE CloseDate > :today';
+        String opportunities = 'SELECT Id, StageName, ExpectedRevenue, OwnerId, CloseDate, PaymentCondition__c , ' +
+        '(SELECT Id, Product2Id, Quantity, TotalPrice FROM OpportunityLineItems) ' + 
+        'FROM Opportunity WHERE CloseDate > :today';
 
         return Database.getQueryLocator(opportunities);
     }
@@ -107,6 +107,6 @@ global with sharing class BatchLoadMetasWithOpportunities implements Database.Ba
     }
 
     global void execute(SchedulableContext sc){
-        Database.executeBatch(new BatchLoadMetasWithOpportunities());
+        Database.executeBatch(new BatchLoadGoalItemsWithOpportunities());
     }
 }
