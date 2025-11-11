@@ -1,4 +1,9 @@
-global with sharing class BatchLoadGoalItemWithOrders implements Database.Batchable<sObject>, Database.Stateful{
+global with sharing class BatchUpdateGoalItemWithOrders implements Database.Batchable<sObject>, Database.Stateful{
+
+    Id PerformanceRecordTypeId = Schema.SObjectType.GoalItem__c.getRecordTypeInfosByDeveloperName().get('Performance').getRecordTypeId();
+    Id ProdutoRecordTypeId = Schema.SObjectType.GoalItem__c.getRecordTypeInfosByDeveloperName().get('Produto').getRecordTypeId();
+    Id FamiliaDeProdutoRecordTypeId = Schema.SObjectType.GoalItem__c.getRecordTypeInfosByDeveloperName().get('FamiliaDeProduto').getRecordTypeId();
+    Id CondicaoDePagamentoRecordTypeId = Schema.SObjectType.GoalItem__c.getRecordTypeInfosByDeveloperName().get('CondicaoDePagamento').getRecordTypeId();
 
     Map<Id, GoalItem__c> goalItemsToUpdateMap = new Map<Id, GoalItem__c>();
     Integer year = Date.today().year();
@@ -27,7 +32,7 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
         }
 
         Map<Id, Goal__c> sellerGoals = new Map<Id, Goal__c>([
-            SELECT Id, Seller__c, Year__c 
+            SELECT Id, Seller__c, Year__c, SalesValue__c
             FROM Goal__c 
             WHERE Seller__c IN :ownerIdToOrderMap.keySet() AND Year__c =: year
         ]); 
@@ -48,17 +53,15 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
         ];
 
         Map<Id, List<Order>> goalItemToOrdersMap = new Map<Id, List<Order>>();
-        Set<Id> recordTypeIds = new Set<Id>();
         for(GoalItem__c iGoalItem: goalItems){
+
             if(goalIdsToOrdersMap.containsKey(iGoalItem.GoalId__c)){
                 goalItemToOrdersMap.put(iGoalItem.Id, goalIdsToOrdersMap.get(iGoalItem.GoalId__c));
             }
-            recordTypeIds.add(iGoalItem.RecordTypeId);
             iGoalItem.NegotiatedValue__c = 0.0;
             iGoalItem.RealizedValue__c = 0.0;
         }
 
-        Map<Id, RecordType> recordTypes = new Map<Id, RecordType>([SELECT Id, DeveloperName FROM RecordType WHERE Id IN :recordTypeIds]);
         Set<Id> productIds = new Set<Id>();
         for(OrderItem iOrderItem: orderItems){
             productIds.add(iOrderItem.Product2Id);
@@ -78,17 +81,19 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
         List<GoalItem__c> goalItemsToUpdate = new List<GoalItem__c>();
         for(GoalItem__c iGoalItem: goalItems){
 
-            if(recordTypes.get(iGoalItem.RecordTypeId).DeveloperName == 'Performance'){
-                UpdateGoalItemWithOrder.performanceGoalItem(iGoalItem, goalItemToOrdersMap.get(iGoalItem.Id));
+            List<Order> iGoalItemOrdersList = goalItemToOrdersMap.get(iGoalItem.Id);
+
+            if(iGoalItem.RecordTypeId == PerformanceRecordTypeId){
+                UpdateGoalItemWithOrder.performanceGoalItem(iGoalItem, iGoalItemOrdersList);
             }
-            if(recordTypes.get(iGoalItem.RecordTypeId).DeveloperName == 'Produto'){
-                UpdateGoalItemWithOrder.productGoalItem(iGoalItem, goalItemToOrdersMap.get(iGoalItem.Id));
+            if(iGoalItem.RecordTypeId == ProdutoRecordTypeId){
+                UpdateGoalItemWithOrder.productGoalItem(iGoalItem, iGoalItemOrdersList);
             }
-            if(recordTypes.get(iGoalItem.RecordTypeId).DeveloperName == 'FamiliaDeProduto'){
-                UpdateGoalItemWithOrder.productHierarchyGoalItem(iGoalItem, goalItemToOrdersMap.get(iGoalItem.Id), productToProductHierarchyMap);
+            if(iGoalItem.RecordTypeId == FamiliaDeProdutoRecordTypeId){
+                UpdateGoalItemWithOrder.productHierarchyGoalItem(iGoalItem, iGoalItemOrdersList, productToProductHierarchyMap);
             }
-            if(recordTypes.get(iGoalItem.RecordTypeId).DeveloperName == 'CondicaoDePagamento'){
-                UpdateGoalItemWithOrder.paymentConditionGoalItem(iGoalItem, goalItemToOrdersMap.get(iGoalItem.Id));
+            if(iGoalItem.RecordTypeId == CondicaoDePagamentoRecordTypeId){
+                UpdateGoalItemWithOrder.paymentConditionGoalItem(iGoalItem, iGoalItemOrdersList);
             }
 
             if(goalItemsToUpdateMap.containsKey(iGoalItem.Id)){
@@ -108,6 +113,26 @@ global with sharing class BatchLoadGoalItemWithOrders implements Database.Batcha
                 iGoalItem.AchievedPercentage__c = iGoalItem.CommissionPercentage__c;
             }
         }
-        Database.update(goalItemsToUpdateMap.values());
+
+        if(goalItemsToUpdateMap.values().size() > 10000){
+
+            List<GoalItem__c> goalItemsToUpdateNow = new List<GoalItem__c>();
+            List<GoalItem__c> goalItemsToUpdateInQueue = new List<GoalItem__c>();
+
+            for(Integer position = 0; position < goalItemsToUpdateMap.values().size(); position++){
+                if(position < 10000){
+                    goalItemsToUpdateNow.add(goalItemsToUpdateMap.values()[position]);
+                }else{
+                    goalItemsToUpdateInQueue.add(goalItemsToUpdateMap.values()[position]);
+                }
+            }
+
+            Database.update(goalItemsToUpdateNow);
+            System.enqueueJob(new QueueToUpdateExcessGoalItemInBatch(goalItemsToUpdateInQueue));
+        }else{
+            Database.update(goalItemsToUpdateMap.values());
+        }
+
+        Database.executeBatch(new BatchUpdateGoalsWithOrders());
     }
 }

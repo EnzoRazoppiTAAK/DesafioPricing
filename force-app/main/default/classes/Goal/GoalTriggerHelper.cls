@@ -1,7 +1,16 @@
 public with sharing class GoalTriggerHelper {
   
     public static void handleBeforeInsertGoal(List<Goal__c> newRecordList){
+        onlySystemAdministratorCanMakeDml();
         cannotHaveGoalsWithSameSellerAndYear(newRecordList);
+    }
+
+    public static void handleBeforeUpdateGoal(){
+        onlySystemAdministratorCanMakeDml();
+    }
+
+    public static void handleBeforeDeleteGoal(){
+        onlySystemAdministratorCanMakeDml();
     }
 
     public static void cannotHaveGoalsWithSameSellerAndYear(List<Goal__c> newRecordList){
@@ -34,6 +43,16 @@ public with sharing class GoalTriggerHelper {
             if(newGoalMap.containsKey(goalKey)){
                 newGoalMap.get(goalKey).addError('Não pode ter duas metas com o mesmo vendedor e ano!');
             }
+        }
+    }
+
+    public static void onlySystemAdministratorCanMakeDml(){
+
+        String profileId = UserInfo.getProfileId();
+        Profile systemAdministratorProfile = [SELECT Id, Name FROM Profile WHERE Name = ':System Administrator' LIMIT 1];
+
+        if(profileId != systemAdministratorProfile.Id){
+            throw new NoAccessException('Somente o Administrador do sistema pode alterar as metas');
         }
     }
     

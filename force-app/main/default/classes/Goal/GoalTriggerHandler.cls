@@ -34,4 +34,10 @@ public with sharing class GoalTriggerHandler {
 	public void beforeInsert() {
 		GoalTriggerHelper.handleBeforeInsertGoal(newRecordList);
 	}
+	public void beforeUpdate() {
+		GoalTriggerHelper.handleBeforeUpdateGoal();
+	}
+	public void beforeDelete() {
+		GoalTriggerHelper.handleBeforeDeleteGoal();
+	}
 }
