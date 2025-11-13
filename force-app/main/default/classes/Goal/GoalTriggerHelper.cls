@@ -1,22 +1,13 @@
 public with sharing class GoalTriggerHelper {
   
     public static void handleBeforeInsertGoal(List<Goal__c> newRecordList){
-        onlySystemAdministratorCanMakeDml();
-        cannotHaveGoalsWithSameSellerAndYear(newRecordList);
+        cannotHaveDuplicates(newRecordList);
     }
 
-    public static void handleBeforeUpdateGoal(){
-        onlySystemAdministratorCanMakeDml();
-    }
-
-    public static void handleBeforeDeleteGoal(){
-        onlySystemAdministratorCanMakeDml();
-    }
-
-    public static void cannotHaveGoalsWithSameSellerAndYear(List<Goal__c> newRecordList){
+    public static void cannotHaveDuplicates(List<Goal__c> newRecordList){
 
         Set<Id> sellerIds = new Set<Id>();
-        Set<Decimal> years = new Set<Decimal>(); 
+        Set<String> years = new Set<String>(); 
         Map<String , Goal__c> newGoalMap = new Map<String , Goal__c>();
         for(Goal__c iGoal: newRecordList){
             String goalKey = iGoal.Seller__c+'-'+iGoal.Year__c;
@@ -45,15 +36,4 @@ public with sharing class GoalTriggerHelper {
             }
         }
     }
-
-    public static void onlySystemAdministratorCanMakeDml(){
-
-        String profileId = UserInfo.getProfileId();
-        Profile systemAdministratorProfile = [SELECT Id, Name FROM Profile WHERE Name = ':System Administrator' LIMIT 1];
-
-        if(profileId != systemAdministratorProfile.Id){
-            throw new NoAccessException('Somente o Administrador do sistema pode alterar as metas');
-        }
-    }
-    
 }

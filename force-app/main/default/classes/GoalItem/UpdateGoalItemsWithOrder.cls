@@ -1,9 +1,11 @@
-public with sharing class UpdateGoalItemWithOrder {
+public with sharing class UpdateGoalItemsWithOrder implements UpdateGoalItem_Interface {
 
     static Date today = Date.today();
     static Integer year = Date.today().year();
 
-    public static GoalItem__c performanceGoalItem(GoalItem__c goalItem, List<Order> orders){
+    public static GoalItem__c performanceGoalItem(GoalItem__c goalItem, List<sObject> ordersList){
+
+        List<Order> orders = (List<Order>) ordersList;
         
         for(Order iOrder: orders){
             if(iOrder.ActivatedDate == null){
@@ -19,7 +21,9 @@ public with sharing class UpdateGoalItemWithOrder {
         return goalItem;
     }
 
-    public static GoalItem__c productGoalItem(GoalItem__c goalItem, List<Order> orders){
+    public static GoalItem__c productGoalItem(GoalItem__c goalItem, List<sObject> ordersList){
+
+        List<Order> orders = (List<Order>) ordersList;
 
         List<OrderItem> negotiatedOrderItems = new List<OrderItem>();
         List<OrderItem> realizedOrderItems = new List<OrderItem>();
@@ -49,7 +53,9 @@ public with sharing class UpdateGoalItemWithOrder {
         return goalItem;
     }
 
-    public static GoalItem__c productHierarchyGoalItem(GoalItem__c goalItem, List<Order> orders, Map<Id, Id> productToProductHierarchyMap){
+    public static GoalItem__c productHierarchyGoalItem(GoalItem__c goalItem, List<sObject> ordersList, Map<Id, Id> productToHierarchyMap){
+
+        List<Order> orders = (List<Order>) ordersList;
 
         List<OrderItem> negotiatedOrderItems = new List<OrderItem>();
         List<OrderItem> realizedOrderItems = new List<OrderItem>();
@@ -66,16 +72,16 @@ public with sharing class UpdateGoalItemWithOrder {
         }
 
         for(OrderItem iOrderItem: negotiatedOrderItems){
-            if(productToProductHierarchyMap.containsKey(iOrderItem.Product2Id)){
-                if(productToProductHierarchyMap.get(iOrderItem.Product2Id) == goalItem.ProductHierarchyId__c){
+            if(productToHierarchyMap.containsKey(iOrderItem.Product2Id)){
+                if(productToHierarchyMap.get(iOrderItem.Product2Id) == goalItem.ProductHierarchyId__c){
                     goalItem.NegotiatedValue__c += iOrderItem.FinalTotalPrice__c;
                 }
             }
         }
 
         for(OrderItem iOrderItem: realizedOrderItems){
-            if(productToProductHierarchyMap.containsKey(iOrderItem.Product2Id)){
-                if(productToProductHierarchyMap.get(iOrderItem.Product2Id) == goalItem.ProductHierarchyId__c){
+            if(productToHierarchyMap.containsKey(iOrderItem.Product2Id)){
+                if(productToHierarchyMap.get(iOrderItem.Product2Id) == goalItem.ProductHierarchyId__c){
                     goalItem.RealizedValue__c += iOrderItem.FinalTotalPrice__c;
                 }
             }
@@ -83,7 +89,9 @@ public with sharing class UpdateGoalItemWithOrder {
         return goalItem;
     }
 
-    public static GoalItem__c paymentConditionGoalItem(GoalItem__c goalItem, List<Order> orders){
+    public static GoalItem__c paymentConditionGoalItem(GoalItem__c goalItem, List<sObject> ordersList){
+
+        List<Order> orders = (List<Order>) ordersList;
         
         for(Order iOrder: orders){
             if(iOrder.ActivatedDate == null){

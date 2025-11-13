@@ -2,7 +2,7 @@ global with sharing class BatchUpdateGoalsWithOrders implements Database.Batchab
     
     Map<Id, Goal__c> goalsToUpdateMap = new Map<Id, Goal__c>();
     
-    Integer year = Date.today().year();
+    String year = String.ValueOf(Date.today().year());
 
     global Database.QueryLocator start(Database.BatchableContext bc){
 

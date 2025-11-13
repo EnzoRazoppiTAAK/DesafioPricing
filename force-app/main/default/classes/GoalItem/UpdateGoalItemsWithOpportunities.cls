@@ -1,6 +1,8 @@
-public with sharing class UpdateGoalItemsWithOpportunities {
+public with sharing class UpdateGoalItemsWithOpportunities implements UpdateGoalItem_Interface {
     
-    public static GoalItem__c performanceGoalItem(GoalItem__c goalItem, List<Opportunity> opportunities){
+    public static GoalItem__c performanceGoalItem(GoalItem__c goalItem, List<sObject> opportunitiesList){
+
+        List<Opportunity> opportunities = (List<Opportunity>) opportunitiesList;
         
         for(Opportunity iOpportunity: opportunities){
             goalItem.ProjectedValue__c += iOpportunity.ExpectedRevenue;
@@ -8,7 +10,9 @@ public with sharing class UpdateGoalItemsWithOpportunities {
         return goalItem;
     }
 
-    public static GoalItem__c productGoalItem(GoalItem__c goalItem, List<Opportunity> opportunities){
+    public static GoalItem__c productGoalItem(GoalItem__c goalItem, List<sObject> opportunitiesList){
+
+        List<Opportunity> opportunities = (List<Opportunity>) opportunitiesList;
 
         List<OpportunityLineItem> opportunityLineItems = new List<OpportunityLineItem>();
         for(Opportunity iOpportunity: opportunities){
@@ -23,7 +27,9 @@ public with sharing class UpdateGoalItemsWithOpportunities {
         return goalItem;
     }
 
-    public static GoalItem__c productHierarchyGoalItem(GoalItem__c goalItem, List<Opportunity> opportunities, Map<Id, Id> productToProductHierarchyMap){
+    public static GoalItem__c productHierarchyGoalItem(GoalItem__c goalItem, List<sObject> opportunitiesList, Map<Id, Id> productToHierarchyMap){
+
+        List<Opportunity> opportunities = (List<Opportunity>) opportunitiesList;
 
         List<OpportunityLineItem> opportunityLineItems = new List<OpportunityLineItem>();
         for(Opportunity iOpportunity: opportunities){
@@ -31,8 +37,8 @@ public with sharing class UpdateGoalItemsWithOpportunities {
         }
 
         for(OpportunityLineItem iOpportunityLineItem: opportunityLineItems){
-            if(productToProductHierarchyMap.containsKey(iOpportunityLineItem.Product2Id)){
-                if(productToProductHierarchyMap.get(iOpportunityLineItem.Product2Id) == goalItem.ProductHierarchyId__c){
+            if(productToHierarchyMap.containsKey(iOpportunityLineItem.Product2Id)){
+                if(productToHierarchyMap.get(iOpportunityLineItem.Product2Id) == goalItem.ProductHierarchyId__c){
 
                     goalItem.ProjectedValue__c += iOpportunityLineItem.TotalPrice;
                 }
@@ -41,7 +47,9 @@ public with sharing class UpdateGoalItemsWithOpportunities {
         return goalItem;
     }
 
-    public static GoalItem__c paymentConditionGoalItem(GoalItem__c goalItem, List<Opportunity> opportunities){
+    public static GoalItem__c paymentConditionGoalItem(GoalItem__c goalItem, List<sObject> opportunitiesList){
+
+        List<Opportunity> opportunities = (List<Opportunity>) opportunitiesList;
 
         for(Opportunity iOpportunity: opportunities){
 
