@@ -4,16 +4,10 @@ global with sharing class BatchResetGoalItems implements Database.Batchable<sObj
 
     global Database.QueryLocator start(Database.BatchableContext bc){
 
-        Map<Id, Goal__c> goalsOfThisYear = new Map<Id, Goal__c>([
-            SELECT Id, Year__c 
-            FROM Goal__c 
-            WHERE Year__c =: year
-        ]); 
-
         return Database.getQueryLocator([
-            SELECT Id, GoalId__c, ProjectedValue__c, NegotiatedValue__c, RealizedValue__c, Completed__c
+            SELECT Id, GoalId__r.Year__c, GoalId__c, ProjectedValue__c, NegotiatedValue__c, RealizedValue__c, Completed__c
             FROM GoalItem__c 
-            WHERE GoalId__c IN :goalsOfThisYear.keySet() AND Completed__c = false
+            WHERE GoalId__r.Year__c =: year AND Completed__c = false
         ]);
     }
 

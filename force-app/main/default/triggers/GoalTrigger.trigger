@@ -1,4 +1,4 @@
-trigger GoalTrigger on Goal__c (before insert) {
+trigger GoalTrigger on Goal__c (before insert, before update) {
 
     System.debug('Goal__c Trigger Start => ' + Trigger.operationType);
 	GoalTriggerHandler handler = new GoalTriggerHandler(
@@ -13,6 +13,10 @@ trigger GoalTrigger on Goal__c (before insert) {
 
 			when BEFORE_INSERT {
 				handler.beforeInsert();
+			}
+
+			when BEFORE_UPDATE {
+				handler.beforeUpdate();
 			}
 		}
     }
