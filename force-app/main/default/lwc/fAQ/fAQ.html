@@ -1,0 +1,17 @@
+<template>
+    <header>
+        <h1>FAQ Agro Implements</h1>
+    </header>
+    <main>
+        <div class="secondTitle">
+            <h2>Perguntas Frequentes</h2>
+            <input type="text" placeholder="Pesquisar" oninput={handleInput}></input>
+        </div>
+        <template for:each={fAQslist} for:item="FAQ">
+            <div class="FAQ" key={FAQ.Id}>
+                <h3>{FAQ.Question__c}</h3>
+                <p>{FAQ.Answer__c}</p>
+            </div>
+        </template>
+    </main>
+</template>

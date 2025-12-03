@@ -8,7 +8,7 @@ public with sharing class GoalTriggerHelper {
 
     public static void handleBeforeUpdateGoal(List<Goal__c> newRecordList, Map<Id, Goal__c> oldRecordMap){
         cannotChangeTheSeller(newRecordList, oldRecordMap);
-        SalesValueNeverCanBeNull(newRecordList);
+        salesValueNeverCanBeNull(newRecordList);
     }
 
     public static void cannotHaveDuplicates(List<Goal__c> newRecordList){
@@ -72,7 +72,7 @@ public with sharing class GoalTriggerHelper {
         }
     }
 
-    public static void SalesValueNeverCanBeNull(List<Goal__c> newRecordList){
+    public static void salesValueNeverCanBeNull(List<Goal__c> newRecordList){
         for(Goal__c iGoal: newRecordList){
             if(iGoal.SalesValue__c == null){
                 iGoal.addError('O valor de vendas nunca pode ser nulo!');

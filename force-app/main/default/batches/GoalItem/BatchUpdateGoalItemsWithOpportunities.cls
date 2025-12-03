@@ -63,8 +63,6 @@ global with sharing class BatchUpdateGoalItemsWithOpportunities implements Datab
 
         List<GoalItem__c> goalItemsToUpdate = updateGoalItemService.updateGoalItems();
 
-        System.debug('goalItemsToUpdate: ' + goalItemsToUpdate);
-
         Database.update(goalItemsToUpdate);
     }
 
