@@ -9,7 +9,7 @@ public with sharing class ApexClassToHelpLWC {
         ];
 
         for(FAQ__c iFAQ: allFAQs){
-            iFAQ.Answer__c = iFAQ.Answer__c.remove('<p>').remove('</p>');
+            iFAQ.Answer__c = iFAQ.Answer__c.stripHtmlTags();
             System.debug(iFAQ);
         }
         
