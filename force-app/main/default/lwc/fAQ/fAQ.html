@@ -10,7 +10,7 @@
         <template for:each={fAQslist} for:item="FAQ">
             <div class="FAQ" key={FAQ.Id}>
                 <h3>{FAQ.Question__c}</h3>
-                <p>{FAQ.Answer__c}</p>
+                <lightning-formatted-rich-text value={FAQ.Answer__c}></lightning-formatted-rich-text>
             </div>
         </template>
         <div class="button">
