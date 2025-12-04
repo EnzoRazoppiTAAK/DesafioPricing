@@ -1,6 +1,6 @@
 <template>
     <header>
-        <h1>FAQ Agro Implements</h1>
+        <h1>FAQ - Agro Implements</h1>
     </header>
     <main>
         <div class="secondTitle">
@@ -13,5 +13,16 @@
                 <p>{FAQ.Answer__c}</p>
             </div>
         </template>
+        <div class="button">
+            <template for:each={arrayPageNumbers} for:item="page">
+                <div key={page.number}>
+                    <button data-type={page.type} 
+                    data-number={page.number} 
+                    value={page.number} 
+                    name="Change the page" 
+                    onclick={changePage}>{page.number}</button>
+                </div>
+            </template>
+        </div>
     </main>
 </template>
